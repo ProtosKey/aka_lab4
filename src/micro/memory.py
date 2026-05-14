@@ -37,7 +37,7 @@ class data_memory:
                 self.storage[address + 3] = (value >> 24) & 0xFF
 
 
-class InstructionMemory:
+class instruction_memory:
     def __init__(self, size: int) -> None:
         self.size = size
         self.storage = [0] * size
