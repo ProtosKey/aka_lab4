@@ -1,27 +1,30 @@
-class registers:
-    def __init__(self):
-        self.registers = [0] * 32
-        self.port_a = 0
-        self.port_b = 0
-        self.port_w = 0
-        self.data_w = 0
+from src.micro.line import line
+from src.micro.tick import need_tick
 
-    def read(self, rs1: int, rs2: int) -> None:
-        if rs1 < 0 or rs1 >= len(self.registers):
-            raise RuntimeError(f"Wrong register: {rs1}")
-        if rs2 < 0 or rs2 >= len(self.registers):
-            raise RuntimeError(f"Wrong register: {rs2}")
-        self.port_a = 0 if rs1 == 0 else self.registers[rs1]
-        self.port_b = 0 if rs1 == 0 else self.registers[rs2]
+class registers(need_tick):
+    def __init__(self, line_a: line, line_b: line) -> None:
+        self.registers: list[int] = [0] * 32
+        self.line_a: line = line_a
+        self.line_b: line = line_b
+        self.port_w: int = 0
+        self.data_w: int = 0
 
-    def latch_register(self, rd: int) -> None:
-        if rd < 0 or rd >= len(self.registers):
-            raise RuntimeError(f"Wrong register: {rd}")
-        self.port_w = rd & 0xFFFFFFFF
+    def latch_and_write_port_a(self, regis_source1) -> None:
+        data_a: int = 0 if regis_source1 == 0 else self.registers[regis_source1 & 0x1F]
+        self.line_a.send_value(data_a)
 
-    def latch_data(self, data: int) -> None:
-        self.data_w = data
+    def latch_and_write_port_b(self, regis_source2) -> None:
+        data_b: int = 0 if regis_source2 == 0 else self.registers[regis_source2 & 0x1F]
+        self.line_b.send_value(data_b)
 
-    def write(self) -> None:
+    def latch_port_w(self, regis_dest: int) -> None:
+        value: int = regis_dest & 0x1F
+        self.port_w = value
+
+    def latch_data_w(self, to_write: int) -> None:
+        value: int = to_write & 0xFFFFFFFF
+        self.data_w = value
+
+    def tick(self) -> None:
         if self.port_w != 0:
-            self.data_w
+            self.registers[self.port_w] = self.data_w
