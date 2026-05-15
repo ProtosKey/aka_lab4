@@ -20,10 +20,10 @@ class arithmetic(need_op_signal):
         self.op = arithmetic_op.NUL
         self.line_out: line = line_out
 
-    def latch_port_a_and_calc(self, value: int) -> None:
+    def latch_port_a(self, value: int) -> None:
         self.port_a = value
 
-    def latch_port_b_and_calc(self, value: int) -> None:
+    def latch_port_b(self, value: int) -> None:
         self.port_b = value
 
     def do_by_signal_op(self, op: int) -> None:
