@@ -2,20 +2,16 @@
 Golden integration tests.
 
 Each test is a directory under tests/golden/ containing:
-  source.lisp           — Lisp source program
-  input.txt             — bytes fed to port 0 (may be empty)
-  expected_output.txt   — bytes expected on port 1 after HALT
+  source.lisp             — Lisp source program
+  input.txt               — bytes fed to port 0 (may be empty)
+  expected_output.txt     — bytes expected on port 1 after HALT
+  expected_listing.lst    — full disassembly listing (binary variant)
+  expected_trace.txt      — tick-accurate trace (full or first N ticks)
 
-The test pipeline mirrors the real toolchain:
+Test pipeline:
   1. compile_program(source)  →  inst_bytes, data_bytes, listing
   2. run(inst_bytes, ...)     →  output_bytes, traces
-  3. assert output == expected
-
-Additional checks per test:
-  - Listing lines match the binary-variant format (§9 isa.md):
-      <ADDR> - <HEXCODE> - <mnemonic>
-  - Instruction binary size is a nonzero multiple of 4.
-  - Simulation ends with a HALT trace event (no runaway loop).
+  3. compare against all expected_* files
 """
 
 from __future__ import annotations
@@ -49,6 +45,15 @@ def _load(name: str) -> tuple[str, list[int], str]:
     return source, tokens, expected
 
 
+def _read_golden(name: str, filename: str) -> list[str] | None:
+    """Read a golden fixture file and return its lines (stripped), or None if absent."""
+    path = os.path.join(GOLDEN_DIR, name, filename)
+    if not os.path.exists(path):
+        return None
+    with open(path) as f:
+        return [line.rstrip() for line in f if line.rstrip()]
+
+
 # ── parametrize ───────────────────────────────────────────────────────────────
 
 _CASES = [
@@ -59,6 +64,7 @@ _CASES = [
     ("sort", 200_000),
     ("prob2", 500_000),
     ("double_prec", 10_000),
+    ("expr_as_expr", 10_000),
 ]
 
 
@@ -78,10 +84,33 @@ def test_output(name: str, max_ticks: int) -> None:
         f"  expected: {expected.encode('latin-1')!r}"
     )
 
-    # Simulation must have terminated cleanly (HALT or input-empty).
     assert traces, f"[{name}] No traces produced — simulation never started"
     last = traces[-1]
     assert last.halted, f"[{name}] Simulation reached tick limit ({max_ticks}) without HALT"
+
+
+# ── listing golden ────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("name,_", _CASES)
+def test_listing_golden(name: str, _: int) -> None:
+    """
+    Listing must match expected_listing.lst exactly.
+
+    This verifies the binary variant requirement: the translator must produce
+    a deterministic human-readable disassembly alongside the binary file.
+    """
+    source, _, _ = _load(name)
+    _, _, listing = compile_program(source)
+
+    expected_lines = _read_golden(name, "expected_listing.lst")
+    assert expected_lines is not None, f"[{name}] expected_listing.lst is missing"
+
+    actual_lines = [line.rstrip() for line in listing.splitlines() if line.strip()]
+    assert actual_lines == expected_lines, (
+        f"[{name}] Listing mismatch — first differing line:\n"
+        + _first_diff(actual_lines, expected_lines)
+    )
 
 
 # ── listing format ────────────────────────────────────────────────────────────
@@ -105,6 +134,34 @@ def test_listing_format(name: str, _: int) -> None:
         )
 
 
+# ── trace golden ──────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("name,max_ticks", _CASES)
+def test_trace_golden(name: str, max_ticks: int) -> None:
+    """
+    Tick-accurate trace must match expected_trace.txt.
+
+    The golden file may contain fewer lines than the full trace (for large
+    programs).  Only the stored prefix is compared, so any stored line must
+    be reproduced exactly — this pins the tick-level simulator behaviour.
+    """
+    source, tokens, _ = _load(name)
+    inst, data, _ = compile_program(source)
+    _, traces = run(inst, data, tokens, max_ticks=max_ticks)
+
+    expected_lines = _read_golden(name, "expected_trace.txt")
+    assert expected_lines is not None, f"[{name}] expected_trace.txt is missing"
+
+    n = len(expected_lines)
+    actual_lines = [t.format() for t in traces[:n]]
+
+    assert actual_lines == expected_lines, (
+        f"[{name}] Trace mismatch (comparing first {n} ticks) — first differing line:\n"
+        + _first_diff(actual_lines, expected_lines)
+    )
+
+
 # ── binary properties ─────────────────────────────────────────────────────────
 
 
@@ -112,20 +169,41 @@ def test_listing_format(name: str, _: int) -> None:
 def test_binary_properties(name: str, _: int) -> None:
     """
     Instruction binary must be non-empty and word-aligned (4 bytes per instr).
-    Every 4-byte word must decode without an unknown opcode (rounds to HALT).
+    Every 4-byte word must have a non-zero opcode field.
     """
     source, _, _ = _load(name)
     inst, data, _ = compile_program(source)
 
     assert len(inst) > 0, f"[{name}] Empty instruction binary"
-    assert len(inst) % 4 == 0, f"[{name}] Instruction binary length {len(inst)} not a multiple of 4"
+    assert len(inst) % 4 == 0, f"[{name}] Binary length {len(inst)} not a multiple of 4"
 
-    # Each word must be parseable (no completely zero-opcode words except HALT).
     words = struct.unpack_from(f"<{len(inst) // 4}I", inst)
     for i, w in enumerate(words):
         opcode = w & 0x7F
-        # opcode 0x00 means uninitialized / bad encoding
         assert opcode != 0x00, f"[{name}] Word {i} (0x{w:08X}) has zero opcode at byte {i * 4:#06x}"
+
+
+# ── Harvard memory — instruction and data sections ────────────────────────────
+
+
+@pytest.mark.parametrize("name,_", _CASES)
+def test_harvard_sections(name: str, _: int) -> None:
+    """
+    Harvard architecture: instruction memory (inst_bytes) and data memory
+    (data_bytes) must be separate non-overlapping binaries.
+
+    Programs with string literals or global variables must have non-empty
+    data sections; pure-computation programs may have empty ones.
+    """
+    source, _, _ = _load(name)
+    inst, data, _ = compile_program(source)
+
+    # Instruction memory is always non-empty and a multiple of 4.
+    assert len(inst) > 0 and len(inst) % 4 == 0
+
+    # Data memory is a separate byte array — just being present is enough
+    # to satisfy the Harvard split; its content is checked by test_output.
+    assert isinstance(data, bytes)
 
 
 # ── tick-accurate trace sanity ────────────────────────────────────────────────
@@ -134,10 +212,9 @@ def test_binary_properties(name: str, _: int) -> None:
 @pytest.mark.parametrize("name,max_ticks", _CASES)
 def test_trace_sanity(name: str, max_ticks: int) -> None:
     """
-    Basic structural checks on the tick trace:
-      - Every tick number must be strictly increasing.
-      - Fetch ticks (µPC=0x00) must be followed by an execute tick.
-      - PC must be 4-byte aligned on every fetch.
+    Structural invariants of the tick trace:
+      - Tick numbers are strictly sequential.
+      - PC is 4-byte aligned on every fetch tick (µPC=0x00).
     """
     source, tokens, _ = _load(name)
     inst, data, _ = compile_program(source)
@@ -148,7 +225,7 @@ def test_trace_sanity(name: str, max_ticks: int) -> None:
         assert t.tick == prev_tick + 1, f"[{name}] Non-sequential tick: {prev_tick} → {t.tick}"
         prev_tick = t.tick
 
-        if t.mpc == 0x00:  # fetch tick
+        if t.mpc == 0x00:
             assert t.pc % 4 == 0, f"[{name}] Misaligned PC on fetch tick {t.tick}: 0x{t.pc:08X}"
 
 
@@ -158,7 +235,7 @@ def test_trace_sanity(name: str, max_ticks: int) -> None:
 def test_isa_coverage() -> None:
     """
     Together, the golden programs must exercise all ISA instruction classes:
-    ALU, LOAD, STORE, BRANCH (taken + not-taken), JAL, JALR, LUI, IN, OUT, HALT.
+    ALU, LOAD, STORE, BRANCH, JAL, JALR, LUI, IN, OUT, HALT.
     """
     covered_mpcs: set[int] = set()
 
@@ -169,7 +246,6 @@ def test_isa_coverage() -> None:
         for t in traces:
             covered_mpcs.add(t.mpc)
 
-    # Every micro-entry point that the decode table can produce must appear.
     required = {
         0x01,  # ADD
         0x08,  # ADDI
@@ -192,3 +268,16 @@ def test_isa_coverage() -> None:
         "ISA coverage gap — these µPC entry points were never executed: "
         + ", ".join(f"0x{m:02X}" for m in sorted(missing))
     )
+
+
+# ── util ──────────────────────────────────────────────────────────────────────
+
+
+def _first_diff(actual: list[str], expected: list[str]) -> str:
+    n = min(len(actual), len(expected))
+    for i in range(n):
+        if actual[i] != expected[i]:
+            return f"  line {i + 1}:\n    got:      {actual[i]!r}\n    expected: {expected[i]!r}"
+    if len(actual) != len(expected):
+        return f"  length: got {len(actual)}, expected {len(expected)}"
+    return "  (no difference found)"

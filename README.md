@@ -1,6 +1,10 @@
 # Лабораторная работа №4 — Симулятор процессора
 
-**Вариант:** `lisp | risc | harv | mc | tick | binary | stream | port | cstr | prob2`
+**Студент:** Газизуллин Ринат Ришатович, P3216
+
+**Вариант:** `lisp | risc | harv | mc | tick | binary | stream | port | cstr | prob2 | superscalar`
+
+> Усложнение `superscalar` — **не реализовано** согласно условию задания.
 
 ---
 
