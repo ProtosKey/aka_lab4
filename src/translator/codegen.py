@@ -138,7 +138,6 @@ class CodeGen:
         self.ds = ds
         self._params: list[str] = []  # params of current function (empty = main)
 
-
     def compile(self, exprs: list[Expr]) -> None:
         """Compile a complete program."""
         funs = _collect_funs(exprs)
@@ -179,7 +178,6 @@ class CodeGen:
             self.asm.addi(SP, SP, 0)
 
         self.asm.jal(X0, "main")
-
 
     def _expr(self, e: Expr) -> None:
         """Lower expression e; result lands in a0."""
@@ -267,7 +265,6 @@ class CodeGen:
             self._builtin(e)
         else:
             self._user_call(e)
-
 
     def _builtin(self, e: Call) -> None:
         name = e.callee
@@ -422,7 +419,6 @@ class CodeGen:
         self.asm.lw(FP, SP, 4)  # restore caller's fp
         self.asm.addi(SP, SP, frame_size)
         self.asm.jalr(X0, RA)  # return
-
 
     def _param_idx(self, name: str) -> int:
         """Return 0-based parameter index, or -1 if not a parameter."""

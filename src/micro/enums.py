@@ -1,9 +1,11 @@
 """Control signal enumerations matching microcode.md §1."""
+
 from enum import IntEnum
 
 
 class AluOp(IntEnum):
     """3-bit binary ALU operation code (microcode.md §1.1)."""
+
     NOP = 0b000
     ADD = 0b001
     SUB = 0b010
@@ -16,6 +18,7 @@ class AluOp(IntEnum):
 
 class MemOp(IntEnum):
     """3-bit binary data-memory operation code (microcode.md §1.2)."""
+
     NONE = 0b000
     RD_B = 0b001
     RD_W = 0b010
@@ -25,6 +28,7 @@ class MemOp(IntEnum):
 
 class IoOp(IntEnum):
     """2-bit I/O port operation code (microcode.md §1)."""
+
     NONE = 0b00
     IN = 0b01
     OUT = 0b10
@@ -32,6 +36,7 @@ class IoOp(IntEnum):
 
 class WbSel(IntEnum):
     """3-bit write-back mux selector (microcode.md §1.3)."""
+
     NONE = 0b000
     ALU = 0b001
     MEM = 0b010
@@ -42,6 +47,7 @@ class WbSel(IntEnum):
 
 class PcSrc(IntEnum):
     """3-bit PC mux selector including branch conditions (microcode.md §1.4)."""
+
     PC4 = 0b000
     PC_IMM = 0b001
     ALU = 0b010
@@ -53,6 +59,7 @@ class PcSrc(IntEnum):
 
 class Seq(IntEnum):
     """2-bit µPC sequencer mode (microcode.md §1.5)."""
+
     NEXT = 0b00
     FETCH = 0b01
     DECODE = 0b10
