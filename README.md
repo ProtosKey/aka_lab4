@@ -1,5 +1,7 @@
 # Лабораторная работа №4 — Симулятор процессора
 
+[![CI](https://github.com/ProtosKey/aka_lab4/actions/workflows/ci.yml/badge.svg)](https://github.com/ProtosKey/aka_lab4/actions/workflows/ci.yml)
+
 **Студент:** Газизуллин Ринат Ришатович, P3216
 
 **Вариант:** `lisp | risc | harv | mc | tick | binary | stream | port | cstr | prob2 | superscalar`
@@ -448,29 +450,33 @@ python -m src.simulator out/cat.bin   out/cat.data.bin   "Hello!"
 ### 6.1 Запуск тестов
 
 ```bash
-python -m pytest tests/ -v       # 25 тестов
+python -m pytest tests/ -v       # 50 тестов
 python -m pytest tests/ -q       # краткий вывод
 python -m pytest tests/ -k sort  # один тест
 ```
 
-### 6.2 Состав golden-тестов
+### 6.2 Ссылки на golden-тесты
 
-| Тест | Описание | Инстр. | Тиков | Вход | Выход |
-|---|---|---:|---:|---|---|
-| `hello` | Hello, World! | 46 | 691 | — | `Hello, World!\n` |
-| `cat` | Echo input | 16 | 112 | `Hello!\n` | `Hello!\n` |
-| `hello_user_name` | Запрос имени и приветствие | 123 | 2 020 | `Alice\n` | `What is your name?\nHello, Alice!\n` |
-| `sort` | Bubble sort, 0-terminated | 443 | 6 882 | `3\n1\n4\n1\n5\n0\n` | `1\n1\n3\n4\n5\n` |
-| `prob2` | Euler #6 (N=10) | 348 | 37 943 | `10\n` | `2640\n` |
-| `double_prec` | 64-bit сложение | 270 | 457 | — | `1 0\n` |
+| Алгоритм | Исходник | Вход | Трейс | Листинг | Вывод |
+|---|---|---|---|---|---|
+| `hello` | [source.lisp](tests/golden/hello/source.lisp) | — | [trace](tests/golden/hello/expected_trace.txt) | [listing](tests/golden/hello/expected_listing.lst) | `Hello, World!\n` |
+| `cat` | [source.lisp](tests/golden/cat/source.lisp) | [input](tests/golden/cat/input.txt) | [trace](tests/golden/cat/expected_trace.txt) | [listing](tests/golden/cat/expected_listing.lst) | (зеркало ввода) |
+| `hello_user_name` | [source.lisp](tests/golden/hello_user_name/source.lisp) | [input](tests/golden/hello_user_name/input.txt) | [trace (100 тиков)](tests/golden/hello_user_name/expected_trace.txt) | [listing](tests/golden/hello_user_name/expected_listing.lst) | `Hello, Alice!\n` |
+| `sort` | [source.lisp](tests/golden/sort/source.lisp) | [input](tests/golden/sort/input.txt) | [trace (50 тиков)](tests/golden/sort/expected_trace.txt) | [listing](tests/golden/sort/expected_listing.lst) | `1\n1\n3\n4\n5\n` |
+| `prob2` (Euler #6) | [source.lisp](tests/golden/prob2/source.lisp) | [input](tests/golden/prob2/input.txt) | [trace (50 тиков)](tests/golden/prob2/expected_trace.txt) | [listing](tests/golden/prob2/expected_listing.lst) | `2640\n` |
+| `double_prec` | [source.lisp](tests/golden/double_prec/source.lisp) | — | [trace](tests/golden/double_prec/expected_trace.txt) | [listing](tests/golden/double_prec/expected_listing.lst) | `1 0\n` |
+| `expr_as_expr` | [source.lisp](tests/golden/expr_as_expr/source.lisp) | — | [trace](tests/golden/expr_as_expr/expected_trace.txt) | [listing](tests/golden/expr_as_expr/expected_listing.lst) | `1 3 9 Y\n` |
 
 ### 6.3 Что проверяют тесты
 
 | Тест-функция | Что проверяется |
 |---|---|
 | `test_output` | вывод симулятора совпадает с `expected_output.txt` |
+| `test_listing_golden` | листинг побайтово совпадает с `expected_listing.lst` |
 | `test_listing_format` | каждая строка `.lst` — `XXXX - XXXXXXXX - mnemonic` |
+| `test_trace_golden` | трейс (или его префикс) совпадает с `expected_trace.txt` |
 | `test_binary_properties` | `.bin` ненулевой, кратен 4, нет нулевых опкодов |
+| `test_harvard_sections` | inst_bytes и data_bytes — раздельные объекты (Harvard) |
 | `test_trace_sanity` | тики монотонны, PC выровнен на такте выборки |
 | `test_isa_coverage` | все классы ISA-инструкций исполнились хотя бы раз |
 
