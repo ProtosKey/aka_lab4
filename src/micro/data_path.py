@@ -1,10 +1,4 @@
-"""
-DataPath — all architectural state and helper methods.
-
-Harvard architecture: instruction memory (ROM) and data memory (RAM) are
-separate address spaces.  I/O is port-mapped via dedicated IN/OUT
-instructions (stream model, ports 0 and 1).
-"""
+"""DataPath — all processor state: registers, memories, I/O ports."""
 
 from __future__ import annotations
 
@@ -14,7 +8,7 @@ MASK32 = 0xFFFF_FFFF
 
 
 def _sign32(v: int) -> int:
-    """Reinterpret unsigned 32-bit value as signed Python int."""
+    """Unsigned 32-bit → signed Python int."""
     v &= MASK32
     return v if v < 0x8000_0000 else v - 0x1_0000_0000
 
@@ -23,13 +17,10 @@ def _u32(v: int) -> int:
     return v & MASK32
 
 
-# ---------------------------------------------------------------------------
-# Immediate decoders (operate on a 32-bit instruction word)
-# ---------------------------------------------------------------------------
+# Immediate decoders — one per instruction format (R has no immediate).
 
 
 def _imm_i(instr: int) -> int:
-    """I-format: sign-extended 12-bit immediate."""
     raw = (instr >> 20) & 0xFFF
     if raw & 0x800:
         raw |= ~0xFFF
@@ -37,7 +28,6 @@ def _imm_i(instr: int) -> int:
 
 
 def _imm_s(instr: int) -> int:
-    """S-format: sign-extended 12-bit immediate."""
     lo = (instr >> 7) & 0x1F
     hi = (instr >> 25) & 0x7F
     raw = (hi << 5) | lo
@@ -47,7 +37,6 @@ def _imm_s(instr: int) -> int:
 
 
 def _imm_b(instr: int) -> int:
-    """B-format: sign-extended 13-bit branch offset (bit 0 always 0)."""
     b11 = (instr >> 7) & 0x1
     lo = (instr >> 8) & 0xF
     hi = (instr >> 25) & 0x3F
@@ -59,12 +48,10 @@ def _imm_b(instr: int) -> int:
 
 
 def _imm_u(instr: int) -> int:
-    """U-format: upper-20-bit immediate (shifted left 12 to place in result)."""
     return _u32((instr >> 12) << 12)
 
 
 def _imm_j(instr: int) -> int:
-    """J-format: sign-extended 21-bit jump offset (bit 0 always 0)."""
     b20 = (instr >> 31) & 0x1
     lo10 = (instr >> 21) & 0x3FF
     b11 = (instr >> 20) & 0x1
@@ -75,7 +62,6 @@ def _imm_j(instr: int) -> int:
     return _u32(raw)
 
 
-# Opcode constants
 _OP = 0b0110011
 _OP_IMM = 0b0010011
 _LOAD = 0b0000011
@@ -88,19 +74,14 @@ _IO_IN = 0b0001011
 _IO_OUT = 0b0101011
 _SYSTEM = 0b1110011
 
-# Opcodes that use S-format immediate
 _S_FORMAT_OPCODES = {_STORE, _IO_OUT}
-# Opcodes that use B-format immediate
 _B_FORMAT_OPCODES = {_BRANCH}
-# Opcodes that use J-format immediate
 _J_FORMAT_OPCODES = {_JAL}
-# Opcodes that use U-format immediate
 _U_FORMAT_OPCODES = {_LUI}
-# All others default to I-format
 
 
 def decode_imm(instr: int) -> int:
-    """Return the sign-extended immediate for the given instruction word."""
+    """Sign-extended immediate for the given instruction word."""
     op = instr & 0x7F
     if op in _S_FORMAT_OPCODES:
         return _imm_s(instr)
@@ -113,19 +94,8 @@ def decode_imm(instr: int) -> int:
     return _imm_i(instr)
 
 
-# ---------------------------------------------------------------------------
-# DataPath
-# ---------------------------------------------------------------------------
-
-
 class DataPath:
-    """
-    Holds all processor state and exposes combinational helper methods.
-
-    The Control Unit reads this state and calls mutation methods during
-    each tick.  All state commits happen via explicit calls from the CU
-    so that the trace can be emitted in the right order.
-    """
+    """All architectural state; CU calls methods here on each tick."""
 
     def __init__(
         self,
@@ -134,38 +104,28 @@ class DataPath:
         data_bytes: bytes | bytearray = b"",
         input_tokens: list[int] | None = None,
     ) -> None:
-        # ── Architectural registers ──────────────────────────────────────
-        self.pc: int = 0  # Program Counter
-        self.ir: int = 0  # Instruction Register
+        self.pc: int = 0
+        self.ir: int = 0
+        self.regs: list[int] = [0] * 32  # x0 hardwired to 0
 
-        # 32 GP registers; x0 is hardwired to 0 (never written)
-        self.regs: list[int] = [0] * 32
-
-        # ── Instruction Memory (Harvard ROM) ────────────────────────────
         self._inst_mem: bytes | bytearray = inst_bytes
 
-        # ── Data Memory ─────────────────────────────────────────────────
         self._data_mem: bytearray = bytearray(data_size)
         if data_bytes:
             self._data_mem[: len(data_bytes)] = data_bytes
 
-        # Persistent address latch — survives across ticks (architecture.md §11)
+        # persists across ticks so addr-compute and read/write ticks share it
         self.mem_addr: int = 0
 
-        # ── I/O ports (stream, port-mapped) ─────────────────────────────
-        # Port 0: input FIFO; Port 1: output buffer
         self._input: deque[int] = deque(input_tokens or [])
         self._output: list[int] = []
 
-        # ── Combinational outputs (recomputed every tick by the CU) ─────
         self.alu_out: int = 0
         self.zero: bool = False
         self.lt_signed: bool = False
         self.mem_out: int = 0
         self.io_in: int = 0
         self.halt_req: bool = False
-
-    # ── Instruction Memory ───────────────────────────────────────────────
 
     def fetch_instr(self) -> int:
         """Read 4 bytes at PC from instruction memory, little-endian."""
@@ -175,8 +135,6 @@ class DataPath:
         if pc + 4 > len(self._inst_mem):
             raise RuntimeError(f"PC out of range: 0x{pc:08X}")
         return int.from_bytes(self._inst_mem[pc : pc + 4], "little")
-
-    # ── Instruction word field decoders (operate on self.ir) ────────────
 
     @property
     def opcode(self) -> int:
@@ -203,27 +161,18 @@ class DataPath:
         return (self.ir >> 25) & 0x7F
 
     def reg_read(self, n: int) -> int:
-        """Read register n; x0 always returns 0."""
         return 0 if n == 0 else self.regs[n]
 
     def reg_write(self, n: int, value: int) -> None:
-        """Write register n; silently ignores writes to x0."""
         if n != 0:
             self.regs[n] = _u32(value)
 
     def imm(self) -> int:
-        """Return the immediate decoded from self.ir according to format."""
         return decode_imm(self.ir)
 
-    # ── ALU ─────────────────────────────────────────────────────────────
-
     def alu_compute(self, op: int, a: int, b: int) -> None:
-        """
-        Combinational ALU computation (microcode.md §1.1).
-
-        Stores results in self.alu_out / self.zero / self.lt_signed.
-        For NOP, clears those fields without driving the bus.
-        """
+        """Run ALU; store result + flags. lt_signed uses sign-bit formula
+        from microcode.md §1.1 — correct even when a−b overflows."""
         from src.micro.enums import AluOp
 
         a, b = _u32(a), _u32(b)
@@ -253,23 +202,17 @@ class DataPath:
 
         self.alu_out = result
         self.zero = result == 0
-        # lt_signed formula from microcode.md §1.1:
-        # (a[31] != b[31]) ? a[31] : alu_out[31]
-        # correct even when a - b overflows
         a31, b31 = bool(a >> 31), bool(b >> 31)
         self.lt_signed = a31 if (a31 != b31) else bool(result >> 31)
 
-    # ── Data Memory ──────────────────────────────────────────────────────
-
     def mem_read_byte(self, addr: int) -> int:
-        """Sign-extended byte read from data memory."""
+        """Sign-extended byte read."""
         val = self._data_mem[addr] & 0xFF
         if val & 0x80:
             val |= ~0xFF
         return _u32(val)
 
     def mem_read_word(self, addr: int) -> int:
-        """32-bit little-endian word read from data memory."""
         return int.from_bytes(self._data_mem[addr : addr + 4], "little")
 
     def mem_write_byte(self, addr: int, value: int) -> None:
@@ -278,26 +221,17 @@ class DataPath:
     def mem_write_word(self, addr: int, value: int) -> None:
         self._data_mem[addr : addr + 4] = _u32(value).to_bytes(4, "little")
 
-    # Raw access for debug / data loading
     def data_mem_raw(self) -> bytearray:
         return self._data_mem
 
-    # ── I/O ports ────────────────────────────────────────────────────────
-
     def io_read(self, port: int) -> None:
-        """
-        Pop one token from input port FIFO.
-
-        Sets self.io_in on success.  Sets self.halt_req if the FIFO is empty
-        (stream model: empty input halts the simulator).
-        """
+        """Pop one token from input FIFO; set halt_req if empty."""
         if not self._input:
             self.halt_req = True
             return
         self.io_in = self._input.popleft() & 0xFF
 
     def io_write(self, port: int, value: int) -> None:
-        """Append low byte of value to output port buffer."""
         self._output.append(value & 0xFF)
 
     @property

@@ -1,15 +1,4 @@
-"""
-Code generator: lowers the Lisp AST to RISC instructions.
-
-Implements the lowering templates from language.md §6.3 verbatim.
-
-Data section layout (language.md §6.2):
-    0x00000000  : string literals (byte-packed, NUL-terminated)
-    <GP_BASE>   : global variables (4 bytes each, word-aligned)
-    <STACK_TOP> : stack grows downward from top of data memory
-
-All expression results land in a0 (x10).
-"""
+"""Code generator: Lisp AST → RISC instructions. Results always in a0."""
 
 from __future__ import annotations
 
@@ -99,7 +88,7 @@ class DataSection:
         return bytes(self._bytes)
 
 
-# ── Pre-scan ──────────────────────────────────────────────────────────────────
+# pre-scan
 
 
 def _collect_strings(exprs: list[Expr], ds: DataSection) -> None:
@@ -140,7 +129,7 @@ def _collect_funs(exprs: list[Expr]) -> dict[str, DefFun]:
     return funs
 
 
-# ── Code generator ────────────────────────────────────────────────────────────
+# code generator
 
 
 class CodeGen:
@@ -148,8 +137,6 @@ class CodeGen:
         self.asm = asm
         self.ds = ds
         self._params: list[str] = []  # params of current function (empty = main)
-
-    # ── Entry point ───────────────────────────────────────────────────────
 
     def compile(self, exprs: list[Expr]) -> None:
         """Compile a complete program."""
@@ -169,16 +156,10 @@ class CodeGen:
             self._expr(e)
         self.asm.halt()
 
-    # ── Boot stub ─────────────────────────────────────────────────────────
-
     def _emit_boot(self) -> None:
-        """
-        Emit the 5-instruction boot stub (architecture.md §18).
-        The JAL to 'main' is emitted last and resolved in pass-2.
-        """
+        """5-instruction boot stub: load gp/sp, then JAL main."""
         gp_val = self.ds.gp_base
 
-        # LUI gp + ADDI gp
         gp_hi, gp_lo = _hi_lo(gp_val)
         if gp_hi:
             self.asm.lui(GP, gp_hi)
@@ -197,8 +178,6 @@ class CodeGen:
             self.asm.addi(SP, SP, 0)
 
         self.asm.jal(X0, "main")
-
-    # ── Expression lowering ───────────────────────────────────────────────
 
     def _expr(self, e: Expr) -> None:
         """Lower expression e; result lands in a0."""
@@ -286,8 +265,6 @@ class CodeGen:
             self._builtin(e)
         else:
             self._user_call(e)
-
-    # ── Built-in lowering ─────────────────────────────────────────────────
 
     def _builtin(self, e: Call) -> None:
         name = e.callee
@@ -400,36 +377,23 @@ class CodeGen:
         else:
             raise NotImplementedError(f"Built-in: {name!r}")
 
-    # ── User function call ────────────────────────────────────────────────
-
     def _user_call(self, e: Call) -> None:
-        """
-        language.md §6.3 Call template:
-        Push each arg in order, then pop into a(n-1)..a0 in reverse order.
-        """
+        """Push args in order, pop into a(n-1)..a0 in reverse, JAL."""
         n = len(e.args)
-        # Evaluate and push args
         for arg in e.args:
             self._expr(arg)
             self.asm.addi(SP, SP, -4)
             self.asm.sw(SP, A0, 0)
-        # Pop into argument registers (reverse order)
         for i in range(n - 1, -1, -1):
             self.asm.lw(ARG_REGS[i], SP, 0)
             self.asm.addi(SP, SP, 4)
         self.asm.jal(RA, e.callee)
 
-    # ── Function definition ───────────────────────────────────────────────
-
     def _emit_defun(self, fun: DefFun) -> None:
-        """
-        Emit a complete function body with prologue + epilogue.
-        (language.md §6.3 DefFun template)
-        """
+        """Emit prologue + body + epilogue for a user function."""
         n = len(fun.params)
         frame_size = 8 + 4 * n  # ra(4) + fp(4) + n params(4 each)
 
-        # Function entry label
         self.asm.place_label(fun.name)
 
         # Prologue
@@ -456,8 +420,6 @@ class CodeGen:
         self.asm.addi(SP, SP, frame_size)
         self.asm.jalr(X0, RA)  # return
 
-    # ── Helpers ───────────────────────────────────────────────────────────
-
     def _param_idx(self, name: str) -> int:
         """Return 0-based parameter index, or -1 if not a parameter."""
         try:
@@ -466,7 +428,7 @@ class CodeGen:
             return -1
 
 
-# ── Public entry point ────────────────────────────────────────────────────────
+# public API
 
 
 def compile_program(src: str) -> tuple[bytes, bytes, str]:

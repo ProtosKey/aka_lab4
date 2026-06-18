@@ -1,21 +1,3 @@
-"""
-Microcode ROM and instruction decoder.
-
-Bit layout of a 32-bit micro-instruction word (microcode.md §2):
-
-  [0]     IR_WE
-  [1]     PC_WE
-  [2]     REGS_WE
-  [3]     IS_IMM
-  [6:4]   ALU_OP
-  [9:7]   MEM_OP
-  [11:10] IO_OP
-  [14:12] WB_SEL
-  [17:15] PC_SRC
-  [19:18] SEQ
-  [31:20] reserved
-"""
-
 from dataclasses import dataclass
 
 from src.micro.enums import AluOp, IoOp, MemOp, PcSrc, Seq, WbSel
@@ -81,8 +63,6 @@ def _mi(
     )
 
 
-# Full microcode ROM (microcode.md §4).
-# Index == µPC address.
 MICROCODE_ROM: list[MicroInstruction] = [
     # 0x00  µFETCH
     _mi(ir_we=1, seq=Seq.DECODE),
@@ -151,7 +131,6 @@ MICROCODE_ROM: list[MicroInstruction] = [
 assert len(MICROCODE_ROM) == 0x1F, f"ROM has {len(MICROCODE_ROM)} entries, expected 31"
 
 
-# Opcodes used in the decode table.
 _OP = 0b0110011
 _OP_IMM = 0b0010011
 _LOAD = 0b0000011
@@ -164,8 +143,6 @@ _IO_IN = 0b0001011
 _IO_OUT = 0b0101011
 _SYSTEM = 0b1110011
 
-# (opcode, funct3 | None, funct7 | None) → µPC entry.
-# None means "don't care" (not checked for this opcode group).
 _DECODE_TABLE: dict[tuple[int, int | None, int | None], int] = {
     (_OP, 0b000, 0b0000000): 0x01,  # ADD
     (_OP, 0b000, 0b0100000): 0x02,  # SUB
@@ -197,17 +174,13 @@ _DECODE_TABLE: dict[tuple[int, int | None, int | None], int] = {
 
 
 def decode(opcode: int, funct3: int, funct7: int) -> int:
-    """Return µPC entry for the instruction, or 0x1E (HALT) for illegal."""
-    # Try full match (opcode + funct3 + funct7)
     key = (opcode, funct3, funct7)
     if key in _DECODE_TABLE:
         return _DECODE_TABLE[key]
-    # Try without funct7
     key2 = (opcode, funct3, None)
     if key2 in _DECODE_TABLE:
         return _DECODE_TABLE[key2]
-    # Try without funct3 and funct7
     key3 = (opcode, None, None)
     if key3 in _DECODE_TABLE:
         return _DECODE_TABLE[key3]
-    return 0x1E  # illegal → HALT
+    return 0x1E
