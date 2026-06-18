@@ -22,13 +22,11 @@ import sys
 from src.micro.control_unit import ControlUnit, TickTrace
 from src.micro.data_path import DataPath
 
-# Simulator limits
 MAX_TICKS = 1_000_000
-DATA_MEM_SIZE = 64 * 1024  # 64 KiB data memory
+DATA_MEM_SIZE = 64 * 1024
 
 
 def load_input(raw: str) -> list[int]:
-    """Convert input string to list of byte values (code points & 0xFF)."""
     return [ord(c) & 0xFF for c in raw]
 
 
@@ -40,11 +38,6 @@ def run(
     trace: bool = True,
     max_ticks: int = MAX_TICKS,
 ) -> tuple[bytes, list[TickTrace]]:
-    """
-    Run the simulator.
-
-    Returns (output_bytes, traces).
-    """
     dp = DataPath(
         inst_bytes=inst_bytes,
         data_size=DATA_MEM_SIZE,
@@ -90,8 +83,6 @@ def main(argv: list[str] | None = None) -> None:
         with open(data_path_arg, "rb") as f:
             data_bytes = f.read()
 
-    # Input: treat as a string if it doesn't look like a file path,
-    # else load file contents.
     if input_arg and os.path.exists(input_arg):
         with open(input_arg) as f:
             input_str = f.read()

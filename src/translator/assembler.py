@@ -1,18 +1,7 @@
-"""
-Two-pass instruction assembler.
-
-Pass 1: collect labels + emit placeholder words for unresolved refs.
-Pass 2: patch all fixups.
-
-Also builds a parallel listing (address, hex, mnemonic).
-"""
-
 from __future__ import annotations
 
 import struct
 from dataclasses import dataclass
-
-# ── Register constants ─────────────────────────────────────────────────────────
 
 X0 = 0
 RA = 1
@@ -71,8 +60,6 @@ def _rn(r: int) -> str:
     return REG_NAMES.get(r, f"x{r}")
 
 
-# ── Opcode/funct constants ─────────────────────────────────────────────────────
-
 _OP = 0b0110011
 _OP_IMM = 0b0010011
 _LOAD = 0b0000011
@@ -84,8 +71,6 @@ _LUI_OP = 0b0110111
 _IO_IN = 0b0001011
 _IO_OUT = 0b0101011
 _SYSTEM = 0b1110011
-
-# ── Bit-field packers ──────────────────────────────────────────────────────────
 
 
 def _pack_i(opcode: int, rd: int, f3: int, rs1: int, imm: int) -> int:
@@ -180,17 +165,11 @@ def _hi_lo(value: int) -> tuple[int, int]:
     return hi, lo
 
 
-# ── Listing entry ──────────────────────────────────────────────────────────────
-
-
 @dataclass
 class ListingEntry:
     addr: int
     word: int
     mnem: str
-
-
-# ── Assembler ──────────────────────────────────────────────────────────────────
 
 
 @dataclass
@@ -215,8 +194,6 @@ class Assembler:
         self._fixups: list[_Fixup] = []
         self._cnt: int = 0  # label counter
 
-    # ── Label management ──────────────────────────────────────────────────
-
     def pc(self) -> int:
         return len(self._words) * 4
 
@@ -227,8 +204,6 @@ class Assembler:
     def place_label(self, name: str) -> None:
         self._labels[name] = self.pc()
 
-    # ── Raw word emission ─────────────────────────────────────────────────
-
     def _raw(self, word: int, mnem: str) -> None:
         self._words.append(word & 0xFFFFFFFF)
         self._mnems.append(mnem)
@@ -237,8 +212,6 @@ class Assembler:
         f = _Fixup(len(self._words), self.pc(), label, typ, base)
         self._fixups.append(f)
         self._raw(0, mnem)
-
-    # ── Instruction emitters ──────────────────────────────────────────────
 
     def addi(self, rd: int, rs1: int, imm: int) -> None:
         self._raw(_pack_i(_OP_IMM, rd, 0, rs1, imm), f"addi {_rn(rd)}, {_rn(rs1)}, {imm}")
@@ -319,8 +292,6 @@ class Assembler:
             self.lui(rd, hi)
             if lo != 0:
                 self.addi(rd, rd, lo & 0xFFF)
-
-    # ── Resolution ────────────────────────────────────────────────────────
 
     def resolve(self) -> list[int]:
         words = list(self._words)

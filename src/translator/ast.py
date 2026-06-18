@@ -1,14 +1,7 @@
-"""
-Lexer, parser, and AST node definitions for the minimal Lisp dialect.
-(language.md §2–§4)
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Union
-
-# ── AST nodes ────────────────────────────────────────────────────────────────
 
 
 @dataclass
@@ -67,26 +60,17 @@ class Call:
 Expr = Union[IntLit, StrLit, VarRef, Setq, If, Loop, Progn, DefFun, Call]
 
 
-# ── Lexer ─────────────────────────────────────────────────────────────────────
-
-
 def tokenize(src: str) -> list[str]:
-    """
-    Return a flat list of tokens: '(', ')', integer strings, string literals,
-    and identifiers.  Comments (';' to end of line) are stripped.
-    """
     tokens: list[str] = []
     i, n = 0, len(src)
 
     while i < n:
         c = src[i]
 
-        # Skip whitespace
         if c in " \t\r\n":
             i += 1
             continue
 
-        # Skip comment
         if c == ";":
             while i < n and src[i] != "\n":
                 i += 1
@@ -102,7 +86,6 @@ def tokenize(src: str) -> list[str]:
             i += 1
             continue
 
-        # String literal
         if c == '"':
             i += 1
             buf = []
@@ -130,7 +113,6 @@ def tokenize(src: str) -> list[str]:
             tokens.append('"' + "".join(buf) + '"')
             continue
 
-        # Number or identifier/symbol
         j = i
         while j < n and src[j] not in ' \t\r\n();"':
             j += 1
@@ -141,9 +123,6 @@ def tokenize(src: str) -> list[str]:
         i = j
 
     return tokens
-
-
-# ── Parser ───────────────────────────────────────────────────────────────────
 
 
 class _Parser:
@@ -179,17 +158,14 @@ class _Parser:
 
         self._consume()
 
-        # String literal
         if tok.startswith('"'):
-            return StrLit(tok[1:-1])  # strip leading and trailing "
+            return StrLit(tok[1:-1])
 
-        # Integer literal
         try:
             return IntLit(int(tok))
         except ValueError:
             pass
 
-        # Identifier
         return VarRef(tok)
 
     def _parse_compound(self) -> Expr:
@@ -231,7 +207,6 @@ class _Parser:
             self._consume(")")
             return Progn(body)
 
-        # Function / built-in call
         args: list[Expr] = []
         while self._peek() != ")":
             args.append(self._parse_expr())
@@ -246,6 +221,5 @@ class _Parser:
 
 
 def parse(src: str) -> list[Expr]:
-    """Parse Lisp source and return list of top-level expressions."""
     tokens = tokenize(src)
     return _Parser(tokens).parse_program()
