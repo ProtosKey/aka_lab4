@@ -27,6 +27,7 @@ def _u32(v: int) -> int:
 # Immediate decoders (operate on a 32-bit instruction word)
 # ---------------------------------------------------------------------------
 
+
 def _imm_i(instr: int) -> int:
     """I-format: sign-extended 12-bit immediate."""
     raw = (instr >> 20) & 0xFFF
@@ -37,8 +38,8 @@ def _imm_i(instr: int) -> int:
 
 def _imm_s(instr: int) -> int:
     """S-format: sign-extended 12-bit immediate."""
-    lo  = (instr >> 7)  & 0x1F
-    hi  = (instr >> 25) & 0x7F
+    lo = (instr >> 7) & 0x1F
+    hi = (instr >> 25) & 0x7F
     raw = (hi << 5) | lo
     if raw & 0x800:
         raw |= ~0xFFF
@@ -47,11 +48,11 @@ def _imm_s(instr: int) -> int:
 
 def _imm_b(instr: int) -> int:
     """B-format: sign-extended 13-bit branch offset (bit 0 always 0)."""
-    b11  = (instr >> 7)  & 0x1
-    lo   = (instr >> 8)  & 0xF
-    hi   = (instr >> 25) & 0x3F
-    b12  = (instr >> 31) & 0x1
-    raw  = (b12 << 12) | (b11 << 11) | (hi << 5) | (lo << 1)
+    b11 = (instr >> 7) & 0x1
+    lo = (instr >> 8) & 0xF
+    hi = (instr >> 25) & 0x3F
+    b12 = (instr >> 31) & 0x1
+    raw = (b12 << 12) | (b11 << 11) | (hi << 5) | (lo << 1)
     if b12:
         raw |= ~0x1FFF
     return _u32(raw)
@@ -64,26 +65,26 @@ def _imm_u(instr: int) -> int:
 
 def _imm_j(instr: int) -> int:
     """J-format: sign-extended 21-bit jump offset (bit 0 always 0)."""
-    b20     = (instr >> 31) & 0x1
-    lo10    = (instr >> 21) & 0x3FF
-    b11     = (instr >> 20) & 0x1
-    mid8    = (instr >> 12) & 0xFF
-    raw     = (b20 << 20) | (mid8 << 12) | (b11 << 11) | (lo10 << 1)
+    b20 = (instr >> 31) & 0x1
+    lo10 = (instr >> 21) & 0x3FF
+    b11 = (instr >> 20) & 0x1
+    mid8 = (instr >> 12) & 0xFF
+    raw = (b20 << 20) | (mid8 << 12) | (b11 << 11) | (lo10 << 1)
     if b20:
         raw |= ~0x1F_FFFF
     return _u32(raw)
 
 
 # Opcode constants
-_OP     = 0b0110011
+_OP = 0b0110011
 _OP_IMM = 0b0010011
-_LOAD   = 0b0000011
-_STORE  = 0b0100011
+_LOAD = 0b0000011
+_STORE = 0b0100011
 _BRANCH = 0b1100011
-_JAL    = 0b1101111
-_JALR   = 0b1100111
-_LUI    = 0b0110111
-_IO_IN  = 0b0001011
+_JAL = 0b1101111
+_JALR = 0b1100111
+_LUI = 0b0110111
+_IO_IN = 0b0001011
 _IO_OUT = 0b0101011
 _SYSTEM = 0b1110011
 
@@ -116,6 +117,7 @@ def decode_imm(instr: int) -> int:
 # DataPath
 # ---------------------------------------------------------------------------
 
+
 class DataPath:
     """
     Holds all processor state and exposes combinational helper methods.
@@ -127,14 +129,14 @@ class DataPath:
 
     def __init__(
         self,
-        inst_bytes:   bytes | bytearray,
-        data_size:    int,
-        data_bytes:   bytes | bytearray = b"",
-        input_tokens: list[int] | None  = None,
+        inst_bytes: bytes | bytearray,
+        data_size: int,
+        data_bytes: bytes | bytearray = b"",
+        input_tokens: list[int] | None = None,
     ) -> None:
         # ── Architectural registers ──────────────────────────────────────
-        self.pc: int  = 0       # Program Counter
-        self.ir: int  = 0       # Instruction Register
+        self.pc: int = 0  # Program Counter
+        self.ir: int = 0  # Instruction Register
 
         # 32 GP registers; x0 is hardwired to 0 (never written)
         self.regs: list[int] = [0] * 32
@@ -152,16 +154,16 @@ class DataPath:
 
         # ── I/O ports (stream, port-mapped) ─────────────────────────────
         # Port 0: input FIFO; Port 1: output buffer
-        self._input:  deque[int] = deque(input_tokens or [])
-        self._output: list[int]  = []
+        self._input: deque[int] = deque(input_tokens or [])
+        self._output: list[int] = []
 
         # ── Combinational outputs (recomputed every tick by the CU) ─────
-        self.alu_out:   int  = 0
-        self.zero:      bool = False
+        self.alu_out: int = 0
+        self.zero: bool = False
         self.lt_signed: bool = False
-        self.mem_out:   int  = 0
-        self.io_in:     int  = 0
-        self.halt_req:  bool = False
+        self.mem_out: int = 0
+        self.io_in: int = 0
+        self.halt_req: bool = False
 
     # ── Instruction Memory ───────────────────────────────────────────────
 
@@ -172,22 +174,33 @@ class DataPath:
             raise RuntimeError(f"PC misaligned: 0x{pc:08X}")
         if pc + 4 > len(self._inst_mem):
             raise RuntimeError(f"PC out of range: 0x{pc:08X}")
-        return int.from_bytes(self._inst_mem[pc: pc + 4], "little")
+        return int.from_bytes(self._inst_mem[pc : pc + 4], "little")
 
     # ── Instruction word field decoders (operate on self.ir) ────────────
 
     @property
-    def opcode(self) -> int:  return  self.ir        & 0x7F
+    def opcode(self) -> int:
+        return self.ir & 0x7F
+
     @property
-    def rd(self)     -> int:  return (self.ir >>  7) & 0x1F
+    def rd(self) -> int:
+        return (self.ir >> 7) & 0x1F
+
     @property
-    def funct3(self) -> int:  return (self.ir >> 12) & 0x07
+    def funct3(self) -> int:
+        return (self.ir >> 12) & 0x07
+
     @property
-    def rs1(self)    -> int:  return (self.ir >> 15) & 0x1F
+    def rs1(self) -> int:
+        return (self.ir >> 15) & 0x1F
+
     @property
-    def rs2(self)    -> int:  return (self.ir >> 20) & 0x1F
+    def rs2(self) -> int:
+        return (self.ir >> 20) & 0x1F
+
     @property
-    def funct7(self) -> int:  return (self.ir >> 25) & 0x7F
+    def funct7(self) -> int:
+        return (self.ir >> 25) & 0x7F
 
     def reg_read(self, n: int) -> int:
         """Read register n; x0 always returns 0."""
@@ -212,11 +225,12 @@ class DataPath:
         For NOP, clears those fields without driving the bus.
         """
         from src.micro.enums import AluOp
+
         a, b = _u32(a), _u32(b)
 
         if op == AluOp.NOP:
             self.alu_out = 0
-            self.zero    = False
+            self.zero = False
             self.lt_signed = False
             return
 
@@ -238,7 +252,7 @@ class DataPath:
             result = 0
 
         self.alu_out = result
-        self.zero    = (result == 0)
+        self.zero = result == 0
         # lt_signed formula from microcode.md §1.1:
         # (a[31] != b[31]) ? a[31] : alu_out[31]
         # correct even when a - b overflows
@@ -256,13 +270,13 @@ class DataPath:
 
     def mem_read_word(self, addr: int) -> int:
         """32-bit little-endian word read from data memory."""
-        return int.from_bytes(self._data_mem[addr: addr + 4], "little")
+        return int.from_bytes(self._data_mem[addr : addr + 4], "little")
 
     def mem_write_byte(self, addr: int, value: int) -> None:
         self._data_mem[addr] = value & 0xFF
 
     def mem_write_word(self, addr: int, value: int) -> None:
-        self._data_mem[addr: addr + 4] = _u32(value).to_bytes(4, "little")
+        self._data_mem[addr : addr + 4] = _u32(value).to_bytes(4, "little")
 
     # Raw access for debug / data loading
     def data_mem_raw(self) -> bytearray:

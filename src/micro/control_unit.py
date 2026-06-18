@@ -32,32 +32,26 @@ Events emitted only when the corresponding state actually changes:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from src.micro.data_path import DataPath, _u32
 from src.micro.enums import AluOp, IoOp, MemOp, PcSrc, Seq, WbSel
 from src.micro.microcode_rom import MICROCODE_ROM, decode
 
-_HALTED = -1   # sentinel for a stopped clock
+_HALTED = -1  # sentinel for a stopped clock
 
 
 @dataclass
 class TickTrace:
-    tick:        int
-    pc:          int
-    ir:          int
-    mpc:         int
-    events:      list[str] = field(default_factory=list)
-    halted:      bool      = False
-    halt_reason: str       = ""
+    tick: int
+    pc: int
+    ir: int
+    mpc: int
+    events: list[str] = field(default_factory=list)
+    halted: bool = False
+    halt_reason: str = ""
 
     def format(self) -> str:
-        prefix = (
-            f"tick={self.tick}"
-            f" PC={self.pc:08X}"
-            f" IR={self.ir:08X}"
-            f" µPC={self.mpc:02X}"
-        )
+        prefix = f"tick={self.tick} PC={self.pc:08X} IR={self.ir:08X} µPC={self.mpc:02X}"
         if self.events:
             return prefix + " | " + " ".join(self.events)
         return prefix
@@ -67,13 +61,13 @@ class ControlUnit:
     """Microcoded Control Unit; state = µPC."""
 
     def __init__(self, dp: DataPath) -> None:
-        self.dp:    DataPath = dp
-        self.mpc:   int      = 0
-        self._tick: int      = 0
+        self.dp: DataPath = dp
+        self.mpc: int = 0
+        self._tick: int = 0
 
     # ─────────────────────────────────────────────────────────────────────
 
-    def step(self) -> Optional[TickTrace]:
+    def step(self) -> TickTrace | None:
         """Execute one clock tick.  Returns None if clock is stopped."""
         if self.mpc is _HALTED:
             return None
@@ -110,22 +104,22 @@ class ControlUnit:
             self.dp.mem_out = self.dp.mem_read_word(self.dp.mem_addr)
 
         # ── 6. Combinational: I/O IN (may set halt_req) ───────────────────
-        io_in_val  = 0
+        io_in_val = 0
         io_port_in = self.dp.imm() & 0xFFF  # port number from imm
         if mi.io_op == IoOp.IN:
             self.dp.io_read(io_port_in)
             if self.dp.halt_req:
                 # Empty input FIFO: freeze, no state updates
                 trace.events.append("HALT reason=in-empty")
-                trace.halted      = True
+                trace.halted = True
                 trace.halt_reason = "in-empty"
                 self.mpc = _HALTED
                 return trace
             io_in_val = self.dp.io_in
 
         # ── 7. Combinational: write-back mux ──────────────────────────────
-        pc4    = _u32(self.dp.pc + 4)
-        imm_hi = _u32(self.dp.ir & 0xFFFFF000)   # LUI: IR[31:12] in place
+        pc4 = _u32(self.dp.pc + 4)
+        imm_hi = _u32(self.dp.ir & 0xFFFFF000)  # LUI: IR[31:12] in place
 
         if mi.wb_sel == WbSel.ALU:
             data_w = self.dp.alu_out
@@ -141,7 +135,7 @@ class ControlUnit:
             data_w = 0
 
         # ── 8. Combinational: PC mux ──────────────────────────────────────
-        pc_imm   = _u32(self.dp.pc + self.dp.imm())
+        pc_imm = _u32(self.dp.pc + self.dp.imm())
         alu_jalr = _u32(self.dp.alu_out & 0xFFFF_FFFE)  # & ~1
 
         if mi.pc_src == PcSrc.PC4:
@@ -151,13 +145,13 @@ class ControlUnit:
         elif mi.pc_src == PcSrc.ALU:
             next_pc = alu_jalr
         elif mi.pc_src == PcSrc.BR_EQ:
-            next_pc = pc_imm if     self.dp.zero      else pc4
+            next_pc = pc_imm if self.dp.zero else pc4
         elif mi.pc_src == PcSrc.BR_NE:
-            next_pc = pc_imm if not self.dp.zero      else pc4
+            next_pc = pc_imm if not self.dp.zero else pc4
         elif mi.pc_src == PcSrc.BR_LT:
-            next_pc = pc_imm if     self.dp.lt_signed else pc4
+            next_pc = pc_imm if self.dp.lt_signed else pc4
         elif mi.pc_src == PcSrc.BR_GE:
-            next_pc = pc4    if     self.dp.lt_signed else pc_imm
+            next_pc = pc4 if self.dp.lt_signed else pc_imm
         else:
             next_pc = pc4
 
@@ -170,7 +164,7 @@ class ControlUnit:
 
         # (b) Register file write  [before PC so trace matches timing.md]
         if mi.regs_we:
-            rd = self.dp.rd   # from already-latched IR (execute ticks only)
+            rd = self.dp.rd  # from already-latched IR (execute ticks only)
             if rd != 0:
                 self.dp.reg_write(rd, data_w)
                 trace.events.append(f"regs[{rd}]<={data_w:08X}")
@@ -202,7 +196,7 @@ class ControlUnit:
 
         # (f) Branch annotation
         if mi.pc_src in (PcSrc.BR_EQ, PcSrc.BR_NE, PcSrc.BR_LT, PcSrc.BR_GE):
-            taken = (next_pc == pc_imm)
+            taken = next_pc == pc_imm
             trace.events.append(f"BRANCH taken={int(taken)}")
 
         # (g) mem_addr latch — update whenever ALU ran
@@ -219,13 +213,13 @@ class ControlUnit:
             next_mpc = 0x00
         elif mi.seq == Seq.DECODE:
             next_mpc = decode(
-                new_instr        & 0x7F,
+                new_instr & 0x7F,
                 (new_instr >> 12) & 0x7,
                 (new_instr >> 25) & 0x7F,
             )
         else:  # Seq.HALT
             trace.events.append("HALT reason=halt")
-            trace.halted      = True
+            trace.halted = True
             trace.halt_reason = "halt"
             self.mpc = _HALTED
             return trace

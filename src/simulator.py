@@ -16,11 +16,11 @@ Output:
 
 from __future__ import annotations
 
-import sys
 import os
+import sys
 
-from src.micro.data_path import DataPath
 from src.micro.control_unit import ControlUnit, TickTrace
+from src.micro.data_path import DataPath
 
 # Simulator limits
 MAX_TICKS = 1_000_000
@@ -33,8 +33,8 @@ def load_input(raw: str) -> list[int]:
 
 
 def run(
-    inst_bytes:   bytes,
-    data_bytes:   bytes = b"",
+    inst_bytes: bytes,
+    data_bytes: bytes = b"",
     input_tokens: list[int] | None = None,
     *,
     trace: bool = True,
@@ -46,10 +46,10 @@ def run(
     Returns (output_bytes, traces).
     """
     dp = DataPath(
-        inst_bytes   = inst_bytes,
-        data_size    = DATA_MEM_SIZE,
-        data_bytes   = data_bytes,
-        input_tokens = input_tokens or [],
+        inst_bytes=inst_bytes,
+        data_size=DATA_MEM_SIZE,
+        data_bytes=data_bytes,
+        input_tokens=input_tokens or [],
     )
     cu = ControlUnit(dp)
     traces: list[TickTrace] = []
@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> None:
 
     prog_path = argv[0]
     data_path_arg = argv[1] if len(argv) > 1 else None
-    input_arg  = argv[2] if len(argv) > 2 else ""
+    input_arg = argv[2] if len(argv) > 2 else ""
 
     with open(prog_path, "rb") as f:
         inst_bytes = f.read()

@@ -15,8 +15,8 @@ Example:
 
 from __future__ import annotations
 
-import sys
 import os
+import sys
 
 from src.translator.codegen import compile_program
 
@@ -42,8 +42,7 @@ def main(argv: list[str] | None = None) -> None:
     with open(stem + ".lst", "w") as f:
         f.write(listing + "\n")
 
-    print(f"inst:  {stem}.bin  ({len(inst_bytes)} bytes, "
-          f"{len(inst_bytes)//4} instructions)")
+    print(f"inst:  {stem}.bin  ({len(inst_bytes)} bytes, {len(inst_bytes) // 4} instructions)")
     print(f"data:  {stem}.data.bin  ({len(data_bytes)} bytes)")
     print(f"list:  {stem}.lst")
 

@@ -4,60 +4,71 @@ Lexer, parser, and AST node definitions for the minimal Lisp dialect.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass, field
+
+from dataclasses import dataclass
 from typing import Union
 
-
 # ── AST nodes ────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class IntLit:
     value: int
 
+
 @dataclass
 class StrLit:
-    value: str          # the string content (without quotes)
-    label: int = 0      # assigned by codegen: byte offset in data section
+    value: str  # the string content (without quotes)
+    label: int = 0  # assigned by codegen: byte offset in data section
+
 
 @dataclass
 class VarRef:
     name: str
 
+
 @dataclass
 class Setq:
-    name:  str
-    value: "Expr"
+    name: str
+    value: Expr
+
 
 @dataclass
 class If:
-    cond:  "Expr"
-    then:  "Expr"
-    else_: "Expr"
+    cond: Expr
+    then: Expr
+    else_: Expr
+
 
 @dataclass
 class Loop:
-    cond: "Expr"
-    body: list["Expr"]
+    cond: Expr
+    body: list[Expr]
+
 
 @dataclass
 class Progn:
-    body: list["Expr"]
+    body: list[Expr]
+
 
 @dataclass
 class DefFun:
-    name:   str
+    name: str
     params: list[str]
-    body:   list["Expr"]
+    body: list[Expr]
+
 
 @dataclass
 class Call:
     callee: str
-    args:   list["Expr"]
+    args: list[Expr]
+
 
 Expr = Union[IntLit, StrLit, VarRef, Setq, If, Loop, Progn, DefFun, Call]
 
 
 # ── Lexer ─────────────────────────────────────────────────────────────────────
+
 
 def tokenize(src: str) -> list[str]:
     """
@@ -121,7 +132,7 @@ def tokenize(src: str) -> list[str]:
 
         # Number or identifier/symbol
         j = i
-        while j < n and src[j] not in " \t\r\n();\"":
+        while j < n and src[j] not in ' \t\r\n();"':
             j += 1
         token = src[i:j]
         if not token:
@@ -134,10 +145,11 @@ def tokenize(src: str) -> list[str]:
 
 # ── Parser ───────────────────────────────────────────────────────────────────
 
+
 class _Parser:
     def __init__(self, tokens: list[str]) -> None:
         self._tokens = tokens
-        self._pos    = 0
+        self._pos = 0
 
     def _peek(self) -> str | None:
         return self._tokens[self._pos] if self._pos < len(self._tokens) else None
@@ -185,7 +197,7 @@ class _Parser:
         head = self._consume()
 
         if head == "defun":
-            name   = self._consume()
+            name = self._consume()
             self._consume("(")
             params: list[str] = []
             while self._peek() != ")":
@@ -196,14 +208,14 @@ class _Parser:
             return DefFun(name, params, body)
 
         if head == "setq":
-            name  = self._consume()
+            name = self._consume()
             value = self._parse_expr()
             self._consume(")")
             return Setq(name, value)
 
         if head == "if":
-            cond  = self._parse_expr()
-            then  = self._parse_expr()
+            cond = self._parse_expr()
+            then = self._parse_expr()
             else_ = self._parse_expr()
             self._consume(")")
             return If(cond, then, else_)
