@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dev dependencies
+        run: pip install ruff mypy pytest
+
+      - name: ruff — format check
+        run: ruff format --check src/ tests/
+
+      - name: ruff — lint
+        run: ruff check src/ tests/
+
+      - name: mypy — type check
+        run: mypy src/ --config-file pyproject.toml
+
+      - name: pytest — golden tests
+        run: pytest tests/ -v
