@@ -467,6 +467,27 @@ python -m pytest tests/ -k sort  # один тест
 | `double_prec` | [source.lisp](tests/golden/double_prec/source.lisp) | — | [trace](tests/golden/double_prec/expected_trace.txt) | [listing](tests/golden/double_prec/expected_listing.lst) | `1 0\n` |
 | `expr_as_expr` | [source.lisp](tests/golden/expr_as_expr/source.lisp) | — | [trace](tests/golden/expr_as_expr/expected_trace.txt) | [listing](tests/golden/expr_as_expr/expected_listing.lst) | `1 3 9 Y\n` |
 
+**`hello_user_name` — диалог** (`>` вывод симулятора, `<` ввод пользователя):
+
+```
+> What is your name?
+< Alice
+> Hello, Alice!
+```
+
+**`sort` — формат ввода** (по аналогии с `cstr`: последовательность, нуль-терминированная):
+
+```
+3
+1
+4
+1
+5
+0
+```
+
+Числа по одному на строку; `0` — терминатор (аналог NUL-байта в cstr-строке).
+
 ### 6.3 Что проверяют тесты
 
 | Тест-функция | Что проверяется |
@@ -563,6 +584,41 @@ tick=691 PC=000000B4 IR=00000073 µPC=1E | HALT reason=halt
 00B4 - 00000073 - halt
 ```
 
+### 6.6 Пример использования инструментальной цепочки
+
+Полный путь от исходника до вывода на примере `hello`:
+
+```bash
+# 1. Транслятор: Lisp → бинарник + листинг
+$ python -m src.translator tests/golden/hello/source.lisp out/hello
+inst:  out/hello.bin  (184 bytes, 46 instructions)
+data:  out/hello.data.bin  (20 bytes)
+list:  out/hello.lst
+
+# 2. Первые строки листинга
+$ head -6 out/hello.lst
+0000 - 01000193 - addi gp, x0, 16
+0004 - 00018193 - addi gp, gp, 0
+0008 - 00010137 - lui sp, 0x00010
+000C - 00010113 - addi sp, sp, 0
+0010 - 08C0006F - jal x0, main
+0014 - FF410113 - addi sp, sp, -12
+
+# 3. Симулятор: бинарник → тик-трейс + вывод
+$ python -m src.simulator out/hello.bin out/hello.data.bin ""
+tick=1 PC=00000000 IR=00000000 µPC=00 | IR<=01000193 µPC<=08
+tick=2 PC=00000000 IR=01000193 µPC=08 | regs[3]<=00000010 PC<=00000004 µPC<=00
+...
+tick=690 PC=000000B4 IR=00008067 µPC=00 | IR<=00000073 µPC<=1E
+tick=691 PC=000000B4 IR=00000073 µPC=1E | HALT reason=halt
+
+Output (14 bytes): 'Hello, World!\n'
+
+# 4. Автотесты
+$ python -m pytest tests/ -q
+.................................................. 50 passed in 0.48s
+```
+
 ---
 
 ## Структура проекта
@@ -573,8 +629,7 @@ src/
 │   ├── enums.py          # AluOp, MemOp, IoOp, WbSel, PcSrc, Seq
 │   ├── microcode_rom.py  # ROM (31 µ-инструкция) + decode table
 │   ├── data_path.py      # Все регистры, памяти, I/O, ALU
-│   ├── control_unit.py   # µPC, step() → TickTrace
-│   └── command.py        # Энкодеры R/I/S/B/U/J (используются в тестах)
+│   └── control_unit.py   # µPC, step() → TickTrace
 ├── translator/
 │   ├── ast.py            # Лексер + парсер → AST
 │   ├── assembler.py      # Двухпроходный ассемблер + листинг
