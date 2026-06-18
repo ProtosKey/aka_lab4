@@ -4,6 +4,22 @@
 .cache
 .zed/
 .idea/
+.venv/
 
 *.log
 *.temp
+*.pyc
+__pycache__/
+
+out/
+
+.gitignore
+architecture.md
+lab4-task.md
+microcode.md
+risc.drawio
+error.md
+isa.md
+language.md
+risc_new.png
+timing.md
