@@ -1,0 +1,573 @@
+name: sort
+source: |
+  ; Sort a list of positive integers using bubble sort.
+  ;
+  ; Input format (cstr-inspired, 0-terminated):
+  ;   <n1>\n <n2>\n ... <nk>\n 0\n
+  ;
+  ; Output: sorted integers, one per line.
+  
+  (defun div10 (n)
+    (setq q 0)
+    (loop (>= n 10) (setq n (- n 10)) (setq q (+ q 1)))
+    q)
+  
+  (defun mod10 (n)
+    (loop (>= n 10) (setq n (- n 10)))
+    n)
+  
+  (defun print-int (n)
+    (if (< n 10)
+        (putc (+ n 48))
+        (progn
+          (print-int (div10 n))
+          (putc (+ (mod10 n) 48)))))
+  
+  (defun read-int ()
+    (setq acc 0)
+    (setq c (getc))
+    (loop (* (- c 10) c)
+      (setq acc (+ (* acc 10) (- c 48)))
+      (setq c (getc)))
+    acc)
+  
+  ; Array lives at byte address 2048 (well past the globals section).
+  (setq arr 2048)
+  (setq cnt 0)
+  
+  ; Read numbers into array until sentinel 0.
+  (setq num (read-int))
+  (loop num
+    (store (+ arr (* cnt 4)) num)
+    (setq cnt (+ cnt 1))
+    (setq num (read-int)))
+  
+  ; Bubble sort (O(n^2), ascending).
+  (setq pass 0)
+  (loop (< pass cnt)
+    (setq j 0)
+    (loop (< j (- cnt 1))
+      (setq ea (load (+ arr (* j 4))))
+      (setq eb (load (+ arr (* (+ j 1) 4))))
+      (if (> ea eb)
+        (progn
+          (store (+ arr (* j 4)) eb)
+          (store (+ arr (* (+ j 1) 4)) ea))
+        0)
+      (setq j (+ j 1)))
+    (setq pass (+ pass 1)))
+  
+  ; Print sorted array.
+  (setq si 0)
+  (loop (< si cnt)
+    (print-int (load (+ arr (* si 4))))
+    (putc 10)
+    (setq si (+ si 1)))
+input: |
+  3
+  1
+  4
+  1
+  5
+  0
+expected_output: |
+  1
+  1
+  3
+  4
+  5
+expected_trace: |
+  tick=1 PC=00000000 IR=00000000 µPC=00 | IR<=00000193 µPC<=08
+  tick=2 PC=00000000 IR=00000193 µPC=08 | regs[3]<=00000000 PC<=00000004 µPC<=00
+  tick=3 PC=00000004 IR=00000193 µPC=00 | IR<=00018193 µPC<=08
+  tick=4 PC=00000004 IR=00018193 µPC=08 | regs[3]<=00000000 PC<=00000008 µPC<=00
+  tick=5 PC=00000008 IR=00018193 µPC=00 | IR<=00010137 µPC<=1B
+  tick=6 PC=00000008 IR=00010137 µPC=1B | regs[2]<=00010000 PC<=0000000C µPC<=00
+  tick=7 PC=0000000C IR=00010137 µPC=00 | IR<=00010113 µPC<=08
+  tick=8 PC=0000000C IR=00010113 µPC=08 | regs[2]<=00010000 PC<=00000010 µPC<=00
+  tick=9 PC=00000010 IR=00010113 µPC=00 | IR<=3040006F µPC<=19
+  tick=10 PC=00000010 IR=3040006F µPC=19 | PC<=00000314 µPC<=00
+  tick=11 PC=00000314 IR=3040006F µPC=00 | IR<=00001537 µPC<=1B
+  tick=12 PC=00000314 IR=00001537 µPC=1B | regs[10]<=00001000 PC<=00000318 µPC<=00
+  tick=13 PC=00000318 IR=00001537 µPC=00 | IR<=80050513 µPC<=08
+  tick=14 PC=00000318 IR=80050513 µPC=08 | regs[10]<=00000800 PC<=0000031C µPC<=00
+  tick=15 PC=0000031C IR=80050513 µPC=00 | IR<=00A1A623 µPC<=13
+  tick=16 PC=0000031C IR=00A1A623 µPC=13 | data_mem.addr<=0000000C µPC<=14
+  tick=17 PC=0000031C IR=00A1A623 µPC=14 | PC<=00000320 M4[0000000C]<=00000800 µPC<=00
+  tick=18 PC=00000320 IR=00A1A623 µPC=00 | IR<=00000513 µPC<=08
+  tick=19 PC=00000320 IR=00000513 µPC=08 | regs[10]<=00000000 PC<=00000324 µPC<=00
+  tick=20 PC=00000324 IR=00000513 µPC=00 | IR<=00A1A823 µPC<=13
+  tick=21 PC=00000324 IR=00A1A823 µPC=13 | data_mem.addr<=00000010 µPC<=14
+  tick=22 PC=00000324 IR=00A1A823 µPC=14 | PC<=00000328 M4[00000010]<=00000000 µPC<=00
+  tick=23 PC=00000328 IR=00A1A823 µPC=00 | IR<=F0DFF0EF µPC<=19
+  tick=24 PC=00000328 IR=F0DFF0EF µPC=19 | regs[1]<=0000032C PC<=00000234 µPC<=00
+  tick=25 PC=00000234 IR=F0DFF0EF µPC=00 | IR<=FF810113 µPC<=08
+  tick=26 PC=00000234 IR=FF810113 µPC=08 | regs[2]<=0000FFF8 PC<=00000238 µPC<=00
+  tick=27 PC=00000238 IR=FF810113 µPC=00 | IR<=00112023 µPC<=13
+  tick=28 PC=00000238 IR=00112023 µPC=13 | data_mem.addr<=0000FFF8 µPC<=14
+  tick=29 PC=00000238 IR=00112023 µPC=14 | PC<=0000023C M4[0000FFF8]<=0000032C µPC<=00
+  tick=30 PC=0000023C IR=00112023 µPC=00 | IR<=00812223 µPC<=13
+  tick=31 PC=0000023C IR=00812223 µPC=13 | data_mem.addr<=0000FFFC µPC<=14
+  tick=32 PC=0000023C IR=00812223 µPC=14 | PC<=00000240 M4[0000FFFC]<=00000000 µPC<=00
+  tick=33 PC=00000240 IR=00812223 µPC=00 | IR<=00010413 µPC<=08
+  tick=34 PC=00000240 IR=00010413 µPC=08 | regs[8]<=0000FFF8 PC<=00000244 µPC<=00
+  tick=35 PC=00000244 IR=00010413 µPC=00 | IR<=00000513 µPC<=08
+  tick=36 PC=00000244 IR=00000513 µPC=08 | regs[10]<=00000000 PC<=00000248 µPC<=00
+  tick=37 PC=00000248 IR=00000513 µPC=00 | IR<=00A1A223 µPC<=13
+  tick=38 PC=00000248 IR=00A1A223 µPC=13 | data_mem.addr<=00000004 µPC<=14
+  tick=39 PC=00000248 IR=00A1A223 µPC=14 | PC<=0000024C M4[00000004]<=00000000 µPC<=00
+  tick=40 PC=0000024C IR=00A1A223 µPC=00 | IR<=0000050B µPC<=1C
+  tick=41 PC=0000024C IR=0000050B µPC=1C | regs[10]<=00000033 PC<=00000250 IN port=0, value=33 µPC<=00
+  tick=42 PC=00000250 IR=0000050B µPC=00 | IR<=00A1A423 µPC<=13
+  tick=43 PC=00000250 IR=00A1A423 µPC=13 | data_mem.addr<=00000008 µPC<=14
+  tick=44 PC=00000250 IR=00A1A423 µPC=14 | PC<=00000254 M4[00000008]<=00000033 µPC<=00
+  tick=45 PC=00000254 IR=00A1A423 µPC=00 | IR<=FFC10113 µPC<=08
+  tick=46 PC=00000254 IR=FFC10113 µPC=08 | regs[2]<=0000FFF4 PC<=00000258 µPC<=00
+  tick=47 PC=00000258 IR=FFC10113 µPC=00 | IR<=00012023 µPC<=13
+  tick=48 PC=00000258 IR=00012023 µPC=13 | data_mem.addr<=0000FFF4 µPC<=14
+  tick=49 PC=00000258 IR=00012023 µPC=14 | PC<=0000025C M4[0000FFF4]<=00000000 µPC<=00
+  tick=50 PC=0000025C IR=00012023 µPC=00 | IR<=0081A503 µPC<=0F
+expected_listing: |
+  0000 - 00000193 - addi gp, x0, 0
+  0004 - 00018193 - addi gp, gp, 0
+  0008 - 00010137 - lui sp, 0x00010
+  000C - 00010113 - addi sp, sp, 0
+  0010 - 3040006F - jal x0, main
+  0014 - FF410113 - addi sp, sp, -12
+  0018 - 00112023 - sw ra, 0(sp)
+  001C - 00812223 - sw fp, 4(sp)
+  0020 - 00010413 - addi fp, sp, 0
+  0024 - 00A42423 - sw a0, 8(fp)
+  0028 - 00000513 - addi a0, x0, 0
+  002C - 00A1A023 - sw a0, 0(gp)
+  0030 - FFC10113 - addi sp, sp, -4
+  0034 - 00012023 - sw x0, 0(sp)
+  0038 - 00842503 - lw a0, 8(fp)
+  003C - FFC10113 - addi sp, sp, -4
+  0040 - 00A12023 - sw a0, 0(sp)
+  0044 - 00A00513 - addi a0, x0, 10
+  0048 - 00012283 - lw t0, 0(sp)
+  004C - 00410113 - addi sp, sp, 4
+  0050 - 00050313 - addi t1, a0, 0
+  0054 - 00000513 - addi a0, x0, 0
+  0058 - 0062C463 - blt t0, t1, .ge3
+  005C - 00100513 - addi a0, x0, 1
+  0060 - 04050663 - beq a0, x0, .Lend2
+  0064 - 00842503 - lw a0, 8(fp)
+  0068 - FFC10113 - addi sp, sp, -4
+  006C - 00A12023 - sw a0, 0(sp)
+  0070 - 00A00513 - addi a0, x0, 10
+  0074 - 00012283 - lw t0, 0(sp)
+  0078 - 00410113 - addi sp, sp, 4
+  007C - 40A28533 - sub a0, t0, a0
+  0080 - 00A42423 - sw a0, 8(fp)
+  0084 - 0001A503 - lw a0, 0(gp)
+  0088 - FFC10113 - addi sp, sp, -4
+  008C - 00A12023 - sw a0, 0(sp)
+  0090 - 00100513 - addi a0, x0, 1
+  0094 - 00012283 - lw t0, 0(sp)
+  0098 - 00410113 - addi sp, sp, 4
+  009C - 00A28533 - add a0, t0, a0
+  00A0 - 00A1A023 - sw a0, 0(gp)
+  00A4 - 00A12023 - sw a0, 0(sp)
+  00A8 - F91FF06F - jal x0, .Lhead1
+  00AC - 00012503 - lw a0, 0(sp)
+  00B0 - 00410113 - addi sp, sp, 4
+  00B4 - 0001A503 - lw a0, 0(gp)
+  00B8 - 00040113 - addi sp, fp, 0
+  00BC - 00012083 - lw ra, 0(sp)
+  00C0 - 00412403 - lw fp, 4(sp)
+  00C4 - 00C10113 - addi sp, sp, 12
+  00C8 - 00008067 - jalr x0, ra, 0
+  00CC - FF410113 - addi sp, sp, -12
+  00D0 - 00112023 - sw ra, 0(sp)
+  00D4 - 00812223 - sw fp, 4(sp)
+  00D8 - 00010413 - addi fp, sp, 0
+  00DC - 00A42423 - sw a0, 8(fp)
+  00E0 - FFC10113 - addi sp, sp, -4
+  00E4 - 00012023 - sw x0, 0(sp)
+  00E8 - 00842503 - lw a0, 8(fp)
+  00EC - FFC10113 - addi sp, sp, -4
+  00F0 - 00A12023 - sw a0, 0(sp)
+  00F4 - 00A00513 - addi a0, x0, 10
+  00F8 - 00012283 - lw t0, 0(sp)
+  00FC - 00410113 - addi sp, sp, 4
+  0100 - 00050313 - addi t1, a0, 0
+  0104 - 00000513 - addi a0, x0, 0
+  0108 - 0062C463 - blt t0, t1, .ge6
+  010C - 00100513 - addi a0, x0, 1
+  0110 - 02050663 - beq a0, x0, .Lend5
+  0114 - 00842503 - lw a0, 8(fp)
+  0118 - FFC10113 - addi sp, sp, -4
+  011C - 00A12023 - sw a0, 0(sp)
+  0120 - 00A00513 - addi a0, x0, 10
+  0124 - 00012283 - lw t0, 0(sp)
+  0128 - 00410113 - addi sp, sp, 4
+  012C - 40A28533 - sub a0, t0, a0
+  0130 - 00A42423 - sw a0, 8(fp)
+  0134 - 00A12023 - sw a0, 0(sp)
+  0138 - FB1FF06F - jal x0, .Lhead4
+  013C - 00012503 - lw a0, 0(sp)
+  0140 - 00410113 - addi sp, sp, 4
+  0144 - 00842503 - lw a0, 8(fp)
+  0148 - 00040113 - addi sp, fp, 0
+  014C - 00012083 - lw ra, 0(sp)
+  0150 - 00412403 - lw fp, 4(sp)
+  0154 - 00C10113 - addi sp, sp, 12
+  0158 - 00008067 - jalr x0, ra, 0
+  015C - FF410113 - addi sp, sp, -12
+  0160 - 00112023 - sw ra, 0(sp)
+  0164 - 00812223 - sw fp, 4(sp)
+  0168 - 00010413 - addi fp, sp, 0
+  016C - 00A42423 - sw a0, 8(fp)
+  0170 - 00842503 - lw a0, 8(fp)
+  0174 - FFC10113 - addi sp, sp, -4
+  0178 - 00A12023 - sw a0, 0(sp)
+  017C - 00A00513 - addi a0, x0, 10
+  0180 - 00012283 - lw t0, 0(sp)
+  0184 - 00410113 - addi sp, sp, 4
+  0188 - 00050313 - addi t1, a0, 0
+  018C - 00100513 - addi a0, x0, 1
+  0190 - 0062C463 - blt t0, t1, .lt9
+  0194 - 00000513 - addi a0, x0, 0
+  0198 - 02050463 - beq a0, x0, .else7
+  019C - 00842503 - lw a0, 8(fp)
+  01A0 - FFC10113 - addi sp, sp, -4
+  01A4 - 00A12023 - sw a0, 0(sp)
+  01A8 - 03000513 - addi a0, x0, 48
+  01AC - 00012283 - lw t0, 0(sp)
+  01B0 - 00410113 - addi sp, sp, 4
+  01B4 - 00A28533 - add a0, t0, a0
+  01B8 - 000500AB - out a0, 1
+  01BC - 0640006F - jal x0, .end8
+  01C0 - 00842503 - lw a0, 8(fp)
+  01C4 - FFC10113 - addi sp, sp, -4
+  01C8 - 00A12023 - sw a0, 0(sp)
+  01CC - 00012503 - lw a0, 0(sp)
+  01D0 - 00410113 - addi sp, sp, 4
+  01D4 - E41FF0EF - jal ra, div10
+  01D8 - FFC10113 - addi sp, sp, -4
+  01DC - 00A12023 - sw a0, 0(sp)
+  01E0 - 00012503 - lw a0, 0(sp)
+  01E4 - 00410113 - addi sp, sp, 4
+  01E8 - F75FF0EF - jal ra, print-int
+  01EC - 00842503 - lw a0, 8(fp)
+  01F0 - FFC10113 - addi sp, sp, -4
+  01F4 - 00A12023 - sw a0, 0(sp)
+  01F8 - 00012503 - lw a0, 0(sp)
+  01FC - 00410113 - addi sp, sp, 4
+  0200 - ECDFF0EF - jal ra, mod10
+  0204 - FFC10113 - addi sp, sp, -4
+  0208 - 00A12023 - sw a0, 0(sp)
+  020C - 03000513 - addi a0, x0, 48
+  0210 - 00012283 - lw t0, 0(sp)
+  0214 - 00410113 - addi sp, sp, 4
+  0218 - 00A28533 - add a0, t0, a0
+  021C - 000500AB - out a0, 1
+  0220 - 00040113 - addi sp, fp, 0
+  0224 - 00012083 - lw ra, 0(sp)
+  0228 - 00412403 - lw fp, 4(sp)
+  022C - 00C10113 - addi sp, sp, 12
+  0230 - 00008067 - jalr x0, ra, 0
+  0234 - FF810113 - addi sp, sp, -8
+  0238 - 00112023 - sw ra, 0(sp)
+  023C - 00812223 - sw fp, 4(sp)
+  0240 - 00010413 - addi fp, sp, 0
+  0244 - 00000513 - addi a0, x0, 0
+  0248 - 00A1A223 - sw a0, 4(gp)
+  024C - 0000050B - in a0, 0
+  0250 - 00A1A423 - sw a0, 8(gp)
+  0254 - FFC10113 - addi sp, sp, -4
+  0258 - 00012023 - sw x0, 0(sp)
+  025C - 0081A503 - lw a0, 8(gp)
+  0260 - FFC10113 - addi sp, sp, -4
+  0264 - 00A12023 - sw a0, 0(sp)
+  0268 - 00A00513 - addi a0, x0, 10
+  026C - 00012283 - lw t0, 0(sp)
+  0270 - 00410113 - addi sp, sp, 4
+  0274 - 40A28533 - sub a0, t0, a0
+  0278 - FFC10113 - addi sp, sp, -4
+  027C - 00A12023 - sw a0, 0(sp)
+  0280 - 0081A503 - lw a0, 8(gp)
+  0284 - 00012283 - lw t0, 0(sp)
+  0288 - 00410113 - addi sp, sp, 4
+  028C - 02A28533 - mul a0, t0, a0
+  0290 - 06050263 - beq a0, x0, .Lend11
+  0294 - 0041A503 - lw a0, 4(gp)
+  0298 - FFC10113 - addi sp, sp, -4
+  029C - 00A12023 - sw a0, 0(sp)
+  02A0 - 00A00513 - addi a0, x0, 10
+  02A4 - 00012283 - lw t0, 0(sp)
+  02A8 - 00410113 - addi sp, sp, 4
+  02AC - 02A28533 - mul a0, t0, a0
+  02B0 - FFC10113 - addi sp, sp, -4
+  02B4 - 00A12023 - sw a0, 0(sp)
+  02B8 - 0081A503 - lw a0, 8(gp)
+  02BC - FFC10113 - addi sp, sp, -4
+  02C0 - 00A12023 - sw a0, 0(sp)
+  02C4 - 03000513 - addi a0, x0, 48
+  02C8 - 00012283 - lw t0, 0(sp)
+  02CC - 00410113 - addi sp, sp, 4
+  02D0 - 40A28533 - sub a0, t0, a0
+  02D4 - 00012283 - lw t0, 0(sp)
+  02D8 - 00410113 - addi sp, sp, 4
+  02DC - 00A28533 - add a0, t0, a0
+  02E0 - 00A1A223 - sw a0, 4(gp)
+  02E4 - 0000050B - in a0, 0
+  02E8 - 00A1A423 - sw a0, 8(gp)
+  02EC - 00A12023 - sw a0, 0(sp)
+  02F0 - F6DFF06F - jal x0, .Lhead10
+  02F4 - 00012503 - lw a0, 0(sp)
+  02F8 - 00410113 - addi sp, sp, 4
+  02FC - 0041A503 - lw a0, 4(gp)
+  0300 - 00040113 - addi sp, fp, 0
+  0304 - 00012083 - lw ra, 0(sp)
+  0308 - 00412403 - lw fp, 4(sp)
+  030C - 00810113 - addi sp, sp, 8
+  0310 - 00008067 - jalr x0, ra, 0
+  0314 - 00001537 - lui a0, 0x00001
+  0318 - 80050513 - addi a0, a0, 2048
+  031C - 00A1A623 - sw a0, 12(gp)
+  0320 - 00000513 - addi a0, x0, 0
+  0324 - 00A1A823 - sw a0, 16(gp)
+  0328 - F0DFF0EF - jal ra, read-int
+  032C - 00A1AA23 - sw a0, 20(gp)
+  0330 - FFC10113 - addi sp, sp, -4
+  0334 - 00012023 - sw x0, 0(sp)
+  0338 - 0141A503 - lw a0, 20(gp)
+  033C - 08050063 - beq a0, x0, .Lend13
+  0340 - 00C1A503 - lw a0, 12(gp)
+  0344 - FFC10113 - addi sp, sp, -4
+  0348 - 00A12023 - sw a0, 0(sp)
+  034C - 0101A503 - lw a0, 16(gp)
+  0350 - FFC10113 - addi sp, sp, -4
+  0354 - 00A12023 - sw a0, 0(sp)
+  0358 - 00400513 - addi a0, x0, 4
+  035C - 00012283 - lw t0, 0(sp)
+  0360 - 00410113 - addi sp, sp, 4
+  0364 - 02A28533 - mul a0, t0, a0
+  0368 - 00012283 - lw t0, 0(sp)
+  036C - 00410113 - addi sp, sp, 4
+  0370 - 00A28533 - add a0, t0, a0
+  0374 - FFC10113 - addi sp, sp, -4
+  0378 - 00A12023 - sw a0, 0(sp)
+  037C - 0141A503 - lw a0, 20(gp)
+  0380 - 00012283 - lw t0, 0(sp)
+  0384 - 00410113 - addi sp, sp, 4
+  0388 - 00A2A023 - sw a0, 0(t0)
+  038C - 0101A503 - lw a0, 16(gp)
+  0390 - FFC10113 - addi sp, sp, -4
+  0394 - 00A12023 - sw a0, 0(sp)
+  0398 - 00100513 - addi a0, x0, 1
+  039C - 00012283 - lw t0, 0(sp)
+  03A0 - 00410113 - addi sp, sp, 4
+  03A4 - 00A28533 - add a0, t0, a0
+  03A8 - 00A1A823 - sw a0, 16(gp)
+  03AC - E89FF0EF - jal ra, read-int
+  03B0 - 00A1AA23 - sw a0, 20(gp)
+  03B4 - 00A12023 - sw a0, 0(sp)
+  03B8 - F81FF06F - jal x0, .Lhead12
+  03BC - 00012503 - lw a0, 0(sp)
+  03C0 - 00410113 - addi sp, sp, 4
+  03C4 - 00000513 - addi a0, x0, 0
+  03C8 - 00A1AC23 - sw a0, 24(gp)
+  03CC - FFC10113 - addi sp, sp, -4
+  03D0 - 00012023 - sw x0, 0(sp)
+  03D4 - 0181A503 - lw a0, 24(gp)
+  03D8 - FFC10113 - addi sp, sp, -4
+  03DC - 00A12023 - sw a0, 0(sp)
+  03E0 - 0101A503 - lw a0, 16(gp)
+  03E4 - 00012283 - lw t0, 0(sp)
+  03E8 - 00410113 - addi sp, sp, 4
+  03EC - 00050313 - addi t1, a0, 0
+  03F0 - 00100513 - addi a0, x0, 1
+  03F4 - 0062C463 - blt t0, t1, .lt16
+  03F8 - 00000513 - addi a0, x0, 0
+  03FC - 22050263 - beq a0, x0, .Lend15
+  0400 - 00000513 - addi a0, x0, 0
+  0404 - 00A1AE23 - sw a0, 28(gp)
+  0408 - FFC10113 - addi sp, sp, -4
+  040C - 00012023 - sw x0, 0(sp)
+  0410 - 01C1A503 - lw a0, 28(gp)
+  0414 - FFC10113 - addi sp, sp, -4
+  0418 - 00A12023 - sw a0, 0(sp)
+  041C - 0101A503 - lw a0, 16(gp)
+  0420 - FFC10113 - addi sp, sp, -4
+  0424 - 00A12023 - sw a0, 0(sp)
+  0428 - 00100513 - addi a0, x0, 1
+  042C - 00012283 - lw t0, 0(sp)
+  0430 - 00410113 - addi sp, sp, 4
+  0434 - 40A28533 - sub a0, t0, a0
+  0438 - 00012283 - lw t0, 0(sp)
+  043C - 00410113 - addi sp, sp, 4
+  0440 - 00050313 - addi t1, a0, 0
+  0444 - 00100513 - addi a0, x0, 1
+  0448 - 0062C463 - blt t0, t1, .lt19
+  044C - 00000513 - addi a0, x0, 0
+  0450 - 1A050063 - beq a0, x0, .Lend18
+  0454 - 00C1A503 - lw a0, 12(gp)
+  0458 - FFC10113 - addi sp, sp, -4
+  045C - 00A12023 - sw a0, 0(sp)
+  0460 - 01C1A503 - lw a0, 28(gp)
+  0464 - FFC10113 - addi sp, sp, -4
+  0468 - 00A12023 - sw a0, 0(sp)
+  046C - 00400513 - addi a0, x0, 4
+  0470 - 00012283 - lw t0, 0(sp)
+  0474 - 00410113 - addi sp, sp, 4
+  0478 - 02A28533 - mul a0, t0, a0
+  047C - 00012283 - lw t0, 0(sp)
+  0480 - 00410113 - addi sp, sp, 4
+  0484 - 00A28533 - add a0, t0, a0
+  0488 - 00052503 - lw a0, 0(a0)
+  048C - 02A1A023 - sw a0, 32(gp)
+  0490 - 00C1A503 - lw a0, 12(gp)
+  0494 - FFC10113 - addi sp, sp, -4
+  0498 - 00A12023 - sw a0, 0(sp)
+  049C - 01C1A503 - lw a0, 28(gp)
+  04A0 - FFC10113 - addi sp, sp, -4
+  04A4 - 00A12023 - sw a0, 0(sp)
+  04A8 - 00100513 - addi a0, x0, 1
+  04AC - 00012283 - lw t0, 0(sp)
+  04B0 - 00410113 - addi sp, sp, 4
+  04B4 - 00A28533 - add a0, t0, a0
+  04B8 - FFC10113 - addi sp, sp, -4
+  04BC - 00A12023 - sw a0, 0(sp)
+  04C0 - 00400513 - addi a0, x0, 4
+  04C4 - 00012283 - lw t0, 0(sp)
+  04C8 - 00410113 - addi sp, sp, 4
+  04CC - 02A28533 - mul a0, t0, a0
+  04D0 - 00012283 - lw t0, 0(sp)
+  04D4 - 00410113 - addi sp, sp, 4
+  04D8 - 00A28533 - add a0, t0, a0
+  04DC - 00052503 - lw a0, 0(a0)
+  04E0 - 02A1A223 - sw a0, 36(gp)
+  04E4 - 0201A503 - lw a0, 32(gp)
+  04E8 - FFC10113 - addi sp, sp, -4
+  04EC - 00A12023 - sw a0, 0(sp)
+  04F0 - 0241A503 - lw a0, 36(gp)
+  04F4 - 00012283 - lw t0, 0(sp)
+  04F8 - 00410113 - addi sp, sp, 4
+  04FC - 00050313 - addi t1, a0, 0
+  0500 - 00100513 - addi a0, x0, 1
+  0504 - 00534463 - blt t1, t0, .gt22
+  0508 - 00000513 - addi a0, x0, 0
+  050C - 0A050C63 - beq a0, x0, .else20
+  0510 - 00C1A503 - lw a0, 12(gp)
+  0514 - FFC10113 - addi sp, sp, -4
+  0518 - 00A12023 - sw a0, 0(sp)
+  051C - 01C1A503 - lw a0, 28(gp)
+  0520 - FFC10113 - addi sp, sp, -4
+  0524 - 00A12023 - sw a0, 0(sp)
+  0528 - 00400513 - addi a0, x0, 4
+  052C - 00012283 - lw t0, 0(sp)
+  0530 - 00410113 - addi sp, sp, 4
+  0534 - 02A28533 - mul a0, t0, a0
+  0538 - 00012283 - lw t0, 0(sp)
+  053C - 00410113 - addi sp, sp, 4
+  0540 - 00A28533 - add a0, t0, a0
+  0544 - FFC10113 - addi sp, sp, -4
+  0548 - 00A12023 - sw a0, 0(sp)
+  054C - 0241A503 - lw a0, 36(gp)
+  0550 - 00012283 - lw t0, 0(sp)
+  0554 - 00410113 - addi sp, sp, 4
+  0558 - 00A2A023 - sw a0, 0(t0)
+  055C - 00C1A503 - lw a0, 12(gp)
+  0560 - FFC10113 - addi sp, sp, -4
+  0564 - 00A12023 - sw a0, 0(sp)
+  0568 - 01C1A503 - lw a0, 28(gp)
+  056C - FFC10113 - addi sp, sp, -4
+  0570 - 00A12023 - sw a0, 0(sp)
+  0574 - 00100513 - addi a0, x0, 1
+  0578 - 00012283 - lw t0, 0(sp)
+  057C - 00410113 - addi sp, sp, 4
+  0580 - 00A28533 - add a0, t0, a0
+  0584 - FFC10113 - addi sp, sp, -4
+  0588 - 00A12023 - sw a0, 0(sp)
+  058C - 00400513 - addi a0, x0, 4
+  0590 - 00012283 - lw t0, 0(sp)
+  0594 - 00410113 - addi sp, sp, 4
+  0598 - 02A28533 - mul a0, t0, a0
+  059C - 00012283 - lw t0, 0(sp)
+  05A0 - 00410113 - addi sp, sp, 4
+  05A4 - 00A28533 - add a0, t0, a0
+  05A8 - FFC10113 - addi sp, sp, -4
+  05AC - 00A12023 - sw a0, 0(sp)
+  05B0 - 0201A503 - lw a0, 32(gp)
+  05B4 - 00012283 - lw t0, 0(sp)
+  05B8 - 00410113 - addi sp, sp, 4
+  05BC - 00A2A023 - sw a0, 0(t0)
+  05C0 - 0080006F - jal x0, .end21
+  05C4 - 00000513 - addi a0, x0, 0
+  05C8 - 01C1A503 - lw a0, 28(gp)
+  05CC - FFC10113 - addi sp, sp, -4
+  05D0 - 00A12023 - sw a0, 0(sp)
+  05D4 - 00100513 - addi a0, x0, 1
+  05D8 - 00012283 - lw t0, 0(sp)
+  05DC - 00410113 - addi sp, sp, 4
+  05E0 - 00A28533 - add a0, t0, a0
+  05E4 - 00A1AE23 - sw a0, 28(gp)
+  05E8 - 00A12023 - sw a0, 0(sp)
+  05EC - E25FF06F - jal x0, .Lhead17
+  05F0 - 00012503 - lw a0, 0(sp)
+  05F4 - 00410113 - addi sp, sp, 4
+  05F8 - 0181A503 - lw a0, 24(gp)
+  05FC - FFC10113 - addi sp, sp, -4
+  0600 - 00A12023 - sw a0, 0(sp)
+  0604 - 00100513 - addi a0, x0, 1
+  0608 - 00012283 - lw t0, 0(sp)
+  060C - 00410113 - addi sp, sp, 4
+  0610 - 00A28533 - add a0, t0, a0
+  0614 - 00A1AC23 - sw a0, 24(gp)
+  0618 - 00A12023 - sw a0, 0(sp)
+  061C - DB9FF06F - jal x0, .Lhead14
+  0620 - 00012503 - lw a0, 0(sp)
+  0624 - 00410113 - addi sp, sp, 4
+  0628 - 00000513 - addi a0, x0, 0
+  062C - 02A1A423 - sw a0, 40(gp)
+  0630 - FFC10113 - addi sp, sp, -4
+  0634 - 00012023 - sw x0, 0(sp)
+  0638 - 0281A503 - lw a0, 40(gp)
+  063C - FFC10113 - addi sp, sp, -4
+  0640 - 00A12023 - sw a0, 0(sp)
+  0644 - 0101A503 - lw a0, 16(gp)
+  0648 - 00012283 - lw t0, 0(sp)
+  064C - 00410113 - addi sp, sp, 4
+  0650 - 00050313 - addi t1, a0, 0
+  0654 - 00100513 - addi a0, x0, 1
+  0658 - 0062C463 - blt t0, t1, .lt25
+  065C - 00000513 - addi a0, x0, 0
+  0660 - 08050063 - beq a0, x0, .Lend24
+  0664 - 00C1A503 - lw a0, 12(gp)
+  0668 - FFC10113 - addi sp, sp, -4
+  066C - 00A12023 - sw a0, 0(sp)
+  0670 - 0281A503 - lw a0, 40(gp)
+  0674 - FFC10113 - addi sp, sp, -4
+  0678 - 00A12023 - sw a0, 0(sp)
+  067C - 00400513 - addi a0, x0, 4
+  0680 - 00012283 - lw t0, 0(sp)
+  0684 - 00410113 - addi sp, sp, 4
+  0688 - 02A28533 - mul a0, t0, a0
+  068C - 00012283 - lw t0, 0(sp)
+  0690 - 00410113 - addi sp, sp, 4
+  0694 - 00A28533 - add a0, t0, a0
+  0698 - 00052503 - lw a0, 0(a0)
+  069C - FFC10113 - addi sp, sp, -4
+  06A0 - 00A12023 - sw a0, 0(sp)
+  06A4 - 00012503 - lw a0, 0(sp)
+  06A8 - 00410113 - addi sp, sp, 4
+  06AC - AB1FF0EF - jal ra, print-int
+  06B0 - 00A00513 - addi a0, x0, 10
+  06B4 - 000500AB - out a0, 1
+  06B8 - 0281A503 - lw a0, 40(gp)
+  06BC - FFC10113 - addi sp, sp, -4
+  06C0 - 00A12023 - sw a0, 0(sp)
+  06C4 - 00100513 - addi a0, x0, 1
+  06C8 - 00012283 - lw t0, 0(sp)
+  06CC - 00410113 - addi sp, sp, 4
+  06D0 - 00A28533 - add a0, t0, a0
+  06D4 - 02A1A423 - sw a0, 40(gp)
+  06D8 - 00A12023 - sw a0, 0(sp)
+  06DC - F5DFF06F - jal x0, .Lhead23
+  06E0 - 00012503 - lw a0, 0(sp)
+  06E4 - 00410113 - addi sp, sp, 4
+  06E8 - 00000073 - halt

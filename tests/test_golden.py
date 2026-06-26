@@ -1,17 +1,18 @@
 """
 Golden integration tests.
 
-Each test is a directory under tests/golden/ containing:
-  source.lisp             — Lisp source program
-  input.txt               — bytes fed to port 0 (may be empty)
-  expected_output.txt     — bytes expected on port 1 after HALT
-  expected_listing.lst    — full disassembly listing (binary variant)
-  expected_trace.txt      — tick-accurate trace (full or first N ticks)
+Each test is a directory under tests/golden/ containing a single test.yaml:
+  name             — test name
+  source           — Lisp source program
+  input            — bytes fed to port 0 (may be empty)
+  expected_output  — bytes expected on port 1 after HALT
+  expected_trace   — tick-accurate trace (full or first N ticks)
+  expected_listing — full disassembly listing (binary variant)
 
 Test pipeline:
   1. compile_program(source)  →  inst_bytes, data_bytes, listing
   2. run(inst_bytes, ...)     →  output_bytes, traces
-  3. compare against all expected_* files
+  3. compare against all expected_* fields from test.yaml
 """
 
 from __future__ import annotations
@@ -32,26 +33,73 @@ GOLDEN_DIR = os.path.join(os.path.dirname(__file__), "golden")
 _LISTING_LINE = re.compile(r"^[0-9A-F]{4} - [0-9A-F]{8} - .+$")
 
 
+def _parse_yaml(path: str) -> dict:
+    """Parse a simple block-scalar YAML file into a dict."""
+    result: dict = {}
+    current_key: str | None = None
+    block_indent: int | None = None
+    block_lines: list[str] = []
+
+    def flush() -> None:
+        if current_key is not None:
+            result[current_key] = "\n".join(block_lines) + "\n"
+        block_lines.clear()
+
+    with open(path) as f:
+        lines = f.readlines()
+
+    for raw in lines:
+        line = raw.rstrip("\n")
+        stripped = line.strip()
+
+        if block_indent is not None:
+            indent = len(line) - len(line.lstrip()) if stripped else 0
+            if stripped == "" or indent >= block_indent:
+                block_lines.append(line[block_indent:] if stripped else "")
+                continue
+            flush()
+            block_indent = None
+            current_key = None
+
+        if not stripped or ":" not in stripped:
+            continue
+
+        key, _, val = stripped.partition(":")
+        key = key.strip()
+        val = val.strip()
+        if val == "|":
+            flush()
+            current_key = key
+            block_indent = len(line) - len(line.lstrip()) + 2
+            block_lines = []
+        elif val in ("''", '""'):
+            result[key] = ""
+        else:
+            result[key] = val.strip("'\"")
+
+    flush()
+    return result
+
+
+def _load_yaml(name: str) -> dict:
+    path = os.path.join(GOLDEN_DIR, f"{name}.yaml")
+    return _parse_yaml(path)
+
+
 def _load(name: str) -> tuple[str, list[int], str]:
-    """Return (source, input_tokens, expected_output) for the named golden test."""
-    d = os.path.join(GOLDEN_DIR, name)
-    with open(os.path.join(d, "source.lisp")) as f:
-        source = f.read()
-    inp_path = os.path.join(d, "input.txt")
-    input_str = open(inp_path).read() if os.path.exists(inp_path) else ""
-    with open(os.path.join(d, "expected_output.txt")) as f:
-        expected = f.read()
-    tokens = [ord(c) for c in input_str]
-    return source, tokens, expected
+    case = _load_yaml(name)
+    tokens = [ord(c) for c in case.get("input", "")]
+    return case["source"], tokens, case["expected_output"]
 
 
 def _read_golden(name: str, filename: str) -> list[str] | None:
-    """Read a golden fixture file and return its lines (stripped), or None if absent."""
-    path = os.path.join(GOLDEN_DIR, name, filename)
-    if not os.path.exists(path):
+    case = _load_yaml(name)
+    key = filename.replace("expected_", "").replace(".txt", "").replace(".lst", "")
+    key = "expected_" + key
+    text = case.get(key)
+    if text is None:
         return None
-    with open(path) as f:
-        return [line.rstrip() for line in f if line.rstrip()]
+    return [line.rstrip() for line in text.splitlines() if line.rstrip()]
 
 
 # ── parametrize ───────────────────────────────────────────────────────────────
