@@ -318,11 +318,11 @@ f:  addi sp, sp, -(8+4n)
 
 ### 5.1 Datapath (блок-схема)
 
-<img src="risc.png" width="100%">
+<img src="resources/risc.png" width="100%">
 
 ### 5.2 Control Unit (микропрограммный, `mc`)
 
-<img src="cu.png" width="100%">
+<img src="resources/cu.png" width="100%">
 
 Состояние CU — регистр `µPC`. Каждый такт:
 1. Читает micro-инструкцию из ROM по `µPC`.
@@ -417,7 +417,7 @@ python -m pytest tests/ -k sort  # один тест
 | `cat` | [cat.yaml](tests/golden/cat.yaml) | (зеркало ввода) |
 | `hello_user_name` | [hello_user_name.yaml](tests/golden/hello_user_name.yaml) | `Hello, Alice!\n` |
 | `sort` | [sort.yaml](tests/golden/sort.yaml) | `1\n1\n3\n4\n5\n` |
-| `prob2` (Euler #2) | [prob2.yaml](tests/golden/prob2.yaml) | `2640\n` |
+| `prob2` (Euler #6) | [prob2.yaml](tests/golden/prob2.yaml) | `2640\n` |
 | `double_prec` | [double_prec.yaml](tests/golden/double_prec.yaml) | `1 0\n` |
 | `expr_as_expr` | [expr_as_expr.yaml](tests/golden/expr_as_expr.yaml) | `1 3 9 Y\n` |
 
