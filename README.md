@@ -318,36 +318,7 @@ f:  addi sp, sp, -(8+4n)
 
 ### 5.1 Datapath (блок-схема)
 
-```
-        inst_mem
-           │
-  ┌────────┴──────────────────────────────────────────────────────┐
-  │  PC ──► IM ──► IR ──► декодер полей (opcode, rd, rs1, rs2,   │
-  │                        funct3, funct7, imm)                   │
-  │                 │                                             │
-  │              ┌──┴───────────────────────┐                    │
-  │              │      Register File       │                    │
-  │              │  rs1_val   rs2_val   W   │                    │
-  │              └──┬───────────┬───────────┘                    │
-  │                 │           │                                 │
-  │           port_a│   ┌──mux──┘ ← is_imm ← (imm / rs2)        │
-  │                 │   │port_b                                   │
-  │              ┌──┴───┴──┐                                     │
-  │              │   ALU   │ ── alu_out ──┬── mem_addr latch      │
-  │              │         │             │                        │
-  │              └────┬────┘          data_mem                   │
-  │               zero│lt_signed         │mem_out                │
-  │                   │               ┌──┴──────┐                │
-  │           ┌───────┴───────────────┤  WB mux │◄── io_in       │
-  │           │  PC_SRC mux           │ (5-to-1)│◄── PC+4        │
-  │           │  (PC+4 / PC+imm /     │         │◄── imm_hi      │
-  │           │   alu_out / BR_*)     └────┬────┘                │
-  │           │                      data_w│                     │
-  │           └──► new PC                  └──► regs[rd]         │
-  │                                                              │
-  └──────────────────────────────────────────────────────────────┘
-                         ↑ control signals от CU (microcode)
-```
+![](risc.png)
 
 ### 5.2 Control Unit (микропрограммный, `mc`)
 
