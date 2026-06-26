@@ -22,7 +22,7 @@ import sys
 from src.micro.control_unit import ControlUnit, TickTrace
 from src.micro.data_path import DataPath
 
-MAX_TICKS = 1_000_000
+MAX_TICKS = 10_000_000
 DATA_MEM_SIZE = 64 * 1024
 
 
@@ -86,6 +86,8 @@ def main(argv: list[str] | None = None) -> None:
     if input_arg and os.path.exists(input_arg):
         with open(input_arg) as f:
             input_str = f.read()
+    elif not input_arg and not sys.stdin.isatty():
+        input_str = sys.stdin.read()
     else:
         input_str = input_arg
 
