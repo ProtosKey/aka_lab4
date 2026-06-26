@@ -318,11 +318,11 @@ f:  addi sp, sp, -(8+4n)
 
 ### 5.1 Datapath (блок-схема)
 
-![](risc.png)
+<img src="risc.png" width="100%">
 
 ### 5.2 Control Unit (микропрограммный, `mc`)
 
-![](cu.png)
+<img src="cu.png" width="100%">
 
 Состояние CU — регистр `µPC`. Каждый такт:
 1. Читает micro-инструкцию из ROM по `µPC`.
@@ -409,17 +409,19 @@ python -m pytest tests/ -q       # краткий вывод
 python -m pytest tests/ -k sort  # один тест
 ```
 
-### 6.2 Ссылки на golden-тесты
+### 6.2 Golden-тесты
 
-| Алгоритм | Исходник | Вход | Трейс | Листинг | Вывод |
-|---|---|---|---|---|---|
-| `hello` | [source.lisp](tests/golden/hello/source.lisp) | — | [trace](tests/golden/hello/expected_trace.txt) | [listing](tests/golden/hello/expected_listing.lst) | `Hello, World!\n` |
-| `cat` | [source.lisp](tests/golden/cat/source.lisp) | [input](tests/golden/cat/input.txt) | [trace](tests/golden/cat/expected_trace.txt) | [listing](tests/golden/cat/expected_listing.lst) | (зеркало ввода) |
-| `hello_user_name` | [source.lisp](tests/golden/hello_user_name/source.lisp) | [input](tests/golden/hello_user_name/input.txt) | [trace (100 тиков)](tests/golden/hello_user_name/expected_trace.txt) | [listing](tests/golden/hello_user_name/expected_listing.lst) | `Hello, Alice!\n` |
-| `sort` | [source.lisp](tests/golden/sort/source.lisp) | [input](tests/golden/sort/input.txt) | [trace (50 тиков)](tests/golden/sort/expected_trace.txt) | [listing](tests/golden/sort/expected_listing.lst) | `1\n1\n3\n4\n5\n` |
-| `prob2` (Euler #6) | [source.lisp](tests/golden/prob2/source.lisp) | [input](tests/golden/prob2/input.txt) | [trace (50 тиков)](tests/golden/prob2/expected_trace.txt) | [listing](tests/golden/prob2/expected_listing.lst) | `2640\n` |
-| `double_prec` | [source.lisp](tests/golden/double_prec/source.lisp) | — | [trace](tests/golden/double_prec/expected_trace.txt) | [listing](tests/golden/double_prec/expected_listing.lst) | `1 0\n` |
-| `expr_as_expr` | [source.lisp](tests/golden/expr_as_expr/source.lisp) | — | [trace](tests/golden/expr_as_expr/expected_trace.txt) | [listing](tests/golden/expr_as_expr/expected_listing.lst) | `1 3 9 Y\n` |
+| Алгоритм | Файл | Вывод |
+|---|---|---|
+| `hello` | [hello.yaml](tests/golden/hello.yaml) | `Hello, World!\n` |
+| `cat` | [cat.yaml](tests/golden/cat.yaml) | (зеркало ввода) |
+| `hello_user_name` | [hello_user_name.yaml](tests/golden/hello_user_name.yaml) | `Hello, Alice!\n` |
+| `sort` | [sort.yaml](tests/golden/sort.yaml) | `1\n1\n3\n4\n5\n` |
+| `prob2` (Euler #2) | [prob2.yaml](tests/golden/prob2.yaml) | `2640\n` |
+| `double_prec` | [double_prec.yaml](tests/golden/double_prec.yaml) | `1 0\n` |
+| `expr_as_expr` | [expr_as_expr.yaml](tests/golden/expr_as_expr.yaml) | `1 3 9 Y\n` |
+
+Каждый YAML содержит: `source`, `input`, `expected_output`, `expected_trace`, `expected_listing`.
 
 **`hello_user_name` — диалог** (`>` вывод симулятора, `<` ввод пользователя):
 
@@ -490,46 +492,46 @@ tick=691 PC=000000B4 IR=00000073 µPC=1E | HALT reason=halt
 ### 6.5 Листинг hello (полный)
 
 ```
-0000 - 01000193 - addi gp, x0, 16       ; boot: gp = GP_BASE
+0000 - 01000193 - addi gp, x0, 16
 0004 - 00018193 - addi gp, gp, 0
-0008 - 00010137 - lui sp, 0x00010        ; boot: sp = 0x10000
+0008 - 00010137 - lui sp, 0x00010
 000C - 00010113 - addi sp, sp, 0
-0010 - 08C0006F - jal x0, main          ; boot → main
-0014 - FF410113 - addi sp, sp, -12      ; print-str prologue
+0010 - 08C0006F - jal x0, main
+0014 - FF410113 - addi sp, sp, -12
 0018 - 00112023 - sw ra, 0(sp)
 001C - 00812223 - sw fp, 4(sp)
 0020 - 00010413 - addi fp, sp, 0
-0024 - 00A42423 - sw a0, 8(fp)          ; store param p
-0028 - 00842503 - lw a0, 8(fp)          ; c = load-byte(p)
+0024 - 00A42423 - sw a0, 8(fp)
+0028 - 00842503 - lw a0, 8(fp)
 002C - 00050503 - lb a0, 0(a0)
-0030 - 00A1A023 - sw a0, 0(gp)          ; global c = first char
-0034 - FFC10113 - addi sp, sp, -4       ; loop: push default 0
+0030 - 00A1A023 - sw a0, 0(gp)
+0034 - FFC10113 - addi sp, sp, -4
 0038 - 00012023 - sw x0, 0(sp)
-003C - 0001A503 - lw a0, 0(gp)          ; L_head: load c
-0040 - 04050063 - beq a0, x0, .Lend2   ; while c != 0
-0044 - 0001A503 - lw a0, 0(gp)          ; putc(c)
+003C - 0001A503 - lw a0, 0(gp)
+0040 - 04050063 - beq a0, x0, .Lend2
+0044 - 0001A503 - lw a0, 0(gp)
 0048 - 000500AB - out a0, 1
-004C - 00842503 - lw a0, 8(fp)          ; p + 1
+004C - 00842503 - lw a0, 8(fp)
 0050 - FFC10113 - addi sp, sp, -4
 0054 - 00A12023 - sw a0, 0(sp)
 0058 - 00100513 - addi a0, x0, 1
 005C - 00012283 - lw t0, 0(sp)
 0060 - 00410113 - addi sp, sp, 4
 0064 - 00A28533 - add a0, t0, a0
-0068 - 00A42423 - sw a0, 8(fp)          ; p = p + 1
-006C - 00842503 - lw a0, 8(fp)          ; c = load-byte(p)
+0068 - 00A42423 - sw a0, 8(fp)
+006C - 00842503 - lw a0, 8(fp)
 0070 - 00050503 - lb a0, 0(a0)
-0074 - 00A1A023 - sw a0, 0(gp)          ; global c = new char
-0078 - 00A12023 - sw a0, 0(sp)          ; save loop result
+0074 - 00A1A023 - sw a0, 0(gp)
+0078 - 00A12023 - sw a0, 0(sp)
 007C - FC1FF06F - jal x0, .Lhead1
-0080 - 00012503 - lw a0, 0(sp)          ; loop result
+0080 - 00012503 - lw a0, 0(sp)
 0084 - 00410113 - addi sp, sp, 4
-0088 - 00040113 - addi sp, fp, 0        ; print-str epilogue
+0088 - 00040113 - addi sp, fp, 0
 008C - 00012083 - lw ra, 0(sp)
 0090 - 00412403 - lw fp, 4(sp)
 0094 - 00C10113 - addi sp, sp, 12
 0098 - 00008067 - jalr x0, ra, 0
-009C - 00000513 - addi a0, x0, 0        ; main: arg = addr of "Hello, World!\n"
+009C - 00000513 - addi a0, x0, 0
 00A0 - FFC10113 - addi sp, sp, -4
 00A4 - 00A12023 - sw a0, 0(sp)
 00A8 - 00012503 - lw a0, 0(sp)
@@ -594,10 +596,11 @@ src/
 tests/
 ├── test_golden.py
 └── golden/
-    ├── hello/            source.lisp  input.txt  expected_output.txt
-    ├── cat/
-    ├── hello_user_name/
-    ├── sort/
-    ├── prob2/
-    └── double_prec/
+    ├── hello.yaml
+    ├── cat.yaml
+    ├── hello_user_name.yaml
+    ├── sort.yaml
+    ├── prob2.yaml
+    ├── double_prec.yaml
+    └── expr_as_expr.yaml
 ```
