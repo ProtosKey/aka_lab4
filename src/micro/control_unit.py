@@ -1,5 +1,3 @@
-"""Microcoded Control Unit: one step() call = one clock tick."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -29,15 +27,12 @@ class TickTrace:
 
 
 class ControlUnit:
-    """Microcoded CU; only state is µPC."""
-
     def __init__(self, dp: DataPath) -> None:
         self.dp: DataPath = dp
         self.mpc: int = 0
         self._tick: int = 0
 
     def step(self) -> TickTrace | None:
-        """Execute one clock tick. Returns None when stopped."""
         if self.mpc is _HALTED:
             return None
 
@@ -45,7 +40,6 @@ class ControlUnit:
         mi = MICROCODE_ROM[self.mpc]
         trace = TickTrace(tick=self._tick, pc=self.dp.pc, ir=self.dp.ir, mpc=self.mpc)
 
-        # combinational phase
         new_instr = self.dp.fetch_instr()
         rs1_val = self.dp.reg_read(self.dp.rs1)
         rs2_val = self.dp.reg_read(self.dp.rs2)
@@ -107,7 +101,6 @@ class ControlUnit:
         else:
             next_pc = pc4
 
-        # commit — order matters for trace correctness
         if mi.ir_we:
             self.dp.ir = new_instr
             trace.events.append(f"IR<={new_instr:08X}")
@@ -148,7 +141,6 @@ class ControlUnit:
             if mi.seq == Seq.NEXT:
                 trace.events.append(f"data_mem.addr<={self.dp.alu_out:08X}")
 
-        # µPC sequencer
         if mi.seq == Seq.NEXT:
             next_mpc = self.mpc + 1
         elif mi.seq == Seq.FETCH:

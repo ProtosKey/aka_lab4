@@ -136,8 +136,7 @@ def _pack_j(opcode: int, rd: int, imm: int) -> int:
 
 
 def _b_imm_bits(imm: int) -> int:
-    """Encode B-format immediate into the correct bit positions (no opcode)."""
-    b = imm & 0x1FFE  # keep bits [12:1]
+    b = imm & 0x1FFE
     return (
         (((b >> 11) & 0x1) << 7)
         | (((b >> 1) & 0xF) << 8)
@@ -147,7 +146,6 @@ def _b_imm_bits(imm: int) -> int:
 
 
 def _j_imm_bits(imm: int) -> int:
-    """Encode J-format immediate into the correct bit positions (no opcode/rd)."""
     b = imm & 0x1FFFFE
     return (
         (((b >> 12) & 0xFF) << 12)
@@ -158,7 +156,6 @@ def _j_imm_bits(imm: int) -> int:
 
 
 def _hi_lo(value: int) -> tuple[int, int]:
-    """Split a 32-bit constant into (hi20, lo12_signed) for LUI+ADDI."""
     v = value & 0xFFFFFFFF
     hi = ((v + 0x800) >> 12) & 0xFFFFF
     lo = v - (hi << 12)  # signed, fits in [-2048, 2047]
@@ -182,17 +179,12 @@ class _Fixup:
 
 
 class Assembler:
-    """
-    Accumulates instruction words, tracks labels, resolves fixups.
-    Also maintains a human-readable listing.
-    """
-
     def __init__(self) -> None:
         self._words: list[int] = []
         self._mnems: list[str] = []
         self._labels: dict[str, int] = {}
         self._fixups: list[_Fixup] = []
-        self._cnt: int = 0  # label counter
+        self._cnt: int = 0
 
     def pc(self) -> int:
         return len(self._words) * 4
@@ -279,7 +271,6 @@ class Assembler:
         self._raw(_pack_i(_SYSTEM, X0, 0, X0, 0), "halt")
 
     def load_const(self, rd: int, value: int) -> None:
-        """Load an arbitrary 32-bit constant into rd."""
         v = value & 0xFFFFFFFF
         if v >= 0x80000000:
             sv = v - 0x100000000

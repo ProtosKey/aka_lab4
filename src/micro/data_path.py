@@ -1,5 +1,3 @@
-"""DataPath — all processor state: registers, memories, I/O ports."""
-
 from __future__ import annotations
 
 from collections import deque
@@ -8,16 +6,12 @@ MASK32 = 0xFFFF_FFFF
 
 
 def _sign32(v: int) -> int:
-    """Unsigned 32-bit → signed Python int."""
     v &= MASK32
     return v if v < 0x8000_0000 else v - 0x1_0000_0000
 
 
 def _u32(v: int) -> int:
     return v & MASK32
-
-
-# Immediate decoders — one per instruction format (R has no immediate).
 
 
 def _imm_i(instr: int) -> int:
@@ -81,7 +75,6 @@ _U_FORMAT_OPCODES = {_LUI}
 
 
 def decode_imm(instr: int) -> int:
-    """Sign-extended immediate for the given instruction word."""
     op = instr & 0x7F
     if op in _S_FORMAT_OPCODES:
         return _imm_s(instr)
@@ -95,8 +88,6 @@ def decode_imm(instr: int) -> int:
 
 
 class DataPath:
-    """All architectural state; CU calls methods here on each tick."""
-
     def __init__(
         self,
         inst_bytes: bytes | bytearray,
@@ -106,7 +97,7 @@ class DataPath:
     ) -> None:
         self.pc: int = 0
         self.ir: int = 0
-        self.regs: list[int] = [0] * 32  # x0 hardwired to 0
+        self.regs: list[int] = [0] * 32
 
         self._inst_mem: bytes | bytearray = inst_bytes
 
@@ -114,7 +105,6 @@ class DataPath:
         if data_bytes:
             self._data_mem[: len(data_bytes)] = data_bytes
 
-        # persists across ticks so addr-compute and read/write ticks share it
         self.mem_addr: int = 0
 
         self._input: deque[int] = deque(input_tokens or [])
@@ -128,7 +118,6 @@ class DataPath:
         self.halt_req: bool = False
 
     def fetch_instr(self) -> int:
-        """Read 4 bytes at PC from instruction memory, little-endian."""
         pc = self.pc
         if pc & 3:
             raise RuntimeError(f"PC misaligned: 0x{pc:08X}")
@@ -171,8 +160,6 @@ class DataPath:
         return decode_imm(self.ir)
 
     def alu_compute(self, op: int, a: int, b: int) -> None:
-        """Run ALU; store result + flags. lt_signed uses sign-bit formula
-        from microcode.md §1.1 — correct even when a−b overflows."""
         from src.micro.enums import AluOp
 
         a, b = _u32(a), _u32(b)
@@ -206,7 +193,6 @@ class DataPath:
         self.lt_signed = a31 if (a31 != b31) else bool(result >> 31)
 
     def mem_read_byte(self, addr: int) -> int:
-        """Sign-extended byte read."""
         val = self._data_mem[addr] & 0xFF
         if val & 0x80:
             val |= ~0xFF
@@ -225,7 +211,6 @@ class DataPath:
         return self._data_mem
 
     def io_read(self, port: int) -> None:
-        """Pop one token from input FIFO; set halt_req if empty."""
         if not self._input:
             self.halt_req = True
             return

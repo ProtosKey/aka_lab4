@@ -1,5 +1,3 @@
-"""Code generator: Lisp AST → RISC instructions. Results always in a0."""
-
 from __future__ import annotations
 
 from .assembler import (
@@ -28,10 +26,9 @@ from .ast import (
     VarRef,
 )
 
-DATA_MEM_SIZE = 64 * 1024  # 64 KiB
-STACK_TOP = DATA_MEM_SIZE  # sp points just past the top byte
+DATA_MEM_SIZE = 64 * 1024
+STACK_TOP = DATA_MEM_SIZE
 
-# Built-in names that the translator inlines (never emit a JAL for these)
 _BUILTINS = {
     "+",
     "-",
@@ -52,16 +49,13 @@ _BUILTINS = {
 
 
 class DataSection:
-    """Manages the data memory layout (strings + globals)."""
-
     def __init__(self) -> None:
         self._bytes: bytearray = bytearray()
-        self._strings: dict[str, int] = {}  # content → byte offset
-        self._globals: dict[str, int] = {}  # name → byte offset from GP_BASE
-        self.gp_base: int = 0  # set by freeze()
+        self._strings: dict[str, int] = {}
+        self._globals: dict[str, int] = {}
+        self.gp_base: int = 0
 
     def add_string(self, s: str) -> int:
-        """Return byte offset of the string in the data section."""
         if s in self._strings:
             return self._strings[s]
         offset = len(self._bytes)
@@ -71,13 +65,11 @@ class DataSection:
         return offset
 
     def freeze(self) -> None:
-        """Called after all strings are added.  Aligns to 4 bytes; GP starts here."""
         while len(self._bytes) % 4:
             self._bytes.append(0)
         self.gp_base = len(self._bytes)
 
     def global_offset(self, name: str) -> int:
-        """Return byte offset of global variable from GP_BASE (allocates if new)."""
         if name not in self._globals:
             off = len(self._globals) * 4
             self._globals[name] = off
@@ -88,11 +80,7 @@ class DataSection:
         return bytes(self._bytes)
 
 
-# pre-scan
-
-
 def _collect_strings(exprs: list[Expr], ds: DataSection) -> None:
-    """Walk the AST and pre-register all StrLit values."""
     for e in exprs:
         _collect_strings_expr(e, ds)
 
@@ -121,7 +109,6 @@ def _collect_strings_expr(e: Expr, ds: DataSection) -> None:
 
 
 def _collect_funs(exprs: list[Expr]) -> dict[str, DefFun]:
-    """Return all DefFun nodes keyed by name (in order of definition)."""
     funs: dict[str, DefFun] = {}
     for e in exprs:
         if isinstance(e, DefFun):
@@ -129,27 +116,17 @@ def _collect_funs(exprs: list[Expr]) -> dict[str, DefFun]:
     return funs
 
 
-# code generator
-
-
 class CodeGen:
     def __init__(self, asm: Assembler, ds: DataSection) -> None:
         self.asm = asm
         self.ds = ds
-        self._params: list[str] = []  # params of current function (empty = main)
+        self._params: list[str] = []
 
     def compile(self, exprs: list[Expr]) -> None:
-        """Compile a complete program."""
         funs = _collect_funs(exprs)
-
-        # Emit boot stub
         self._emit_boot()
-
-        # Emit user-defined functions first (so JALs can reach them)
         for fun in funs.values():
             self._emit_defun(fun)
-
-        # Emit main body
         self.asm.place_label("main")
         main_exprs = [e for e in exprs if not isinstance(e, DefFun)]
         for e in main_exprs:
@@ -157,7 +134,6 @@ class CodeGen:
         self.asm.halt()
 
     def _emit_boot(self) -> None:
-        """5-instruction boot stub: load gp/sp, then JAL main."""
         gp_val = self.ds.gp_base
 
         gp_hi, gp_lo = _hi_lo(gp_val)
@@ -166,9 +142,8 @@ class CodeGen:
             self.asm.addi(GP, GP, gp_lo & 0xFFF)
         else:
             self.asm.addi(GP, X0, gp_lo & 0xFFF)
-            self.asm.addi(GP, GP, 0)  # pad to keep 5-instr boot (nop)
+            self.asm.addi(GP, GP, 0)  # keeps boot stub at exactly 5 instructions
 
-        # LUI sp + ADDI sp
         sp_hi, sp_lo = _hi_lo(STACK_TOP)
         if sp_hi:
             self.asm.lui(SP, sp_hi)
@@ -180,7 +155,6 @@ class CodeGen:
         self.asm.jal(X0, "main")
 
     def _expr(self, e: Expr) -> None:
-        """Lower expression e; result lands in a0."""
         if isinstance(e, IntLit):
             self._int_lit(e)
         elif isinstance(e, StrLit):
@@ -206,9 +180,7 @@ class CodeGen:
         self.asm.load_const(A0, e.value)
 
     def _str_lit(self, e: StrLit) -> None:
-        # Load absolute address of the string literal
-        addr = e.label  # byte offset in data memory
-        self.asm.load_const(A0, addr)
+        self.asm.load_const(A0, e.label)
 
     def _var_ref(self, e: VarRef) -> None:
         idx = self._param_idx(e.name)
@@ -219,14 +191,13 @@ class CodeGen:
             self.asm.lw(A0, GP, off)
 
     def _setq(self, e: Setq) -> None:
-        self._expr(e.value)  # a0 = value
+        self._expr(e.value)
         idx = self._param_idx(e.name)
         if idx >= 0:
             self.asm.sw(FP, A0, 8 + 4 * idx)
         else:
             off = self.ds.global_offset(e.name)
             self.asm.sw(GP, A0, off)
-        # a0 still holds the assigned value (Setq is an expression)
 
     def _if(self, e: If) -> None:
         l_else = self.asm.new_label("else")
@@ -242,7 +213,6 @@ class CodeGen:
     def _loop(self, e: Loop) -> None:
         l_head = self.asm.new_label("Lhead")
         l_end = self.asm.new_label("Lend")
-        # Push default result = 0
         self.asm.addi(SP, SP, -4)
         self.asm.sw(SP, X0, 0)
         self.asm.place_label(l_head)
@@ -250,7 +220,7 @@ class CodeGen:
         self.asm.beq(A0, X0, l_end)
         for stmt in e.body:
             self._expr(stmt)
-        self.asm.sw(SP, A0, 0)  # save last body value
+        self.asm.sw(SP, A0, 0)
         self.asm.jal(X0, l_head)
         self.asm.place_label(l_end)
         self.asm.lw(A0, SP, 0)
@@ -283,7 +253,7 @@ class CodeGen:
             return
 
         if name == "load":
-            self._expr(e.args[0])  # a0 = addr
+            self._expr(e.args[0])
             self.asm.lw(A0, A0, 0)
             return
 
@@ -293,13 +263,13 @@ class CodeGen:
             return
 
         if name == "store":
-            self._expr(e.args[0])  # a0 = addr
+            self._expr(e.args[0])
             self.asm.addi(SP, SP, -4)
-            self.asm.sw(SP, A0, 0)  # push addr
-            self._expr(e.args[1])  # a0 = val
-            self.asm.lw(T0, SP, 0)  # t0 = addr
+            self.asm.sw(SP, A0, 0)
+            self._expr(e.args[1])
+            self.asm.lw(T0, SP, 0)
             self.asm.addi(SP, SP, 4)
-            self.asm.sw(T0, A0, 0)  # M4[addr] = val
+            self.asm.sw(T0, A0, 0)
             return
 
         if name == "store-byte":
@@ -312,15 +282,13 @@ class CodeGen:
             self.asm.sb(T0, A0, 0)
             return
 
-        # Binary arithmetic/comparison: eval A, push; eval B; pop t0 = A
         a, b = e.args[0], e.args[1]
         self._expr(a)
         self.asm.addi(SP, SP, -4)
         self.asm.sw(SP, A0, 0)
         self._expr(b)
-        self.asm.lw(T0, SP, 0)  # t0 = A
+        self.asm.lw(T0, SP, 0)
         self.asm.addi(SP, SP, 4)
-        # Now: t0 = A, a0 = B
 
         if name == "+":
             self.asm.add(A0, T0, A0)
@@ -330,7 +298,6 @@ class CodeGen:
             self.asm.mul(A0, T0, A0)
 
         elif name == "=":
-            # t1 = t0 - a0; a0 = 1; BEQ t1,x0,+8; a0 = 0
             l_eq = self.asm.new_label("eq")
             self.asm.sub(T1, T0, A0)
             self.asm.addi(A0, X0, 1)
@@ -339,7 +306,6 @@ class CodeGen:
             self.asm.place_label(l_eq)
 
         elif name == "<":
-            # t1 = B; a0 = 1; BLT t0,t1,+8; a0 = 0
             l_lt = self.asm.new_label("lt")
             self.asm.addi(T1, A0, 0)
             self.asm.addi(A0, X0, 1)
@@ -348,7 +314,6 @@ class CodeGen:
             self.asm.place_label(l_lt)
 
         elif name == ">":
-            # (A > B) ⟺ (B < A): BLT t1(=B=a0), t0(=A)
             l_gt = self.asm.new_label("gt")
             self.asm.addi(T1, A0, 0)
             self.asm.addi(A0, X0, 1)
@@ -357,7 +322,6 @@ class CodeGen:
             self.asm.place_label(l_gt)
 
         elif name == "<=":
-            # (A <= B) = !(B < A)
             l_le = self.asm.new_label("le")
             self.asm.addi(T1, A0, 0)
             self.asm.addi(A0, X0, 0)
@@ -366,7 +330,6 @@ class CodeGen:
             self.asm.place_label(l_le)
 
         elif name == ">=":
-            # (A >= B) = !(A < B)
             l_ge = self.asm.new_label("ge")
             self.asm.addi(T1, A0, 0)
             self.asm.addi(A0, X0, 0)
@@ -378,7 +341,6 @@ class CodeGen:
             raise NotImplementedError(f"Built-in: {name!r}")
 
     def _user_call(self, e: Call) -> None:
-        """Push args in order, pop into a(n-1)..a0 in reverse, JAL."""
         n = len(e.args)
         for arg in e.args:
             self._expr(arg)
@@ -390,56 +352,37 @@ class CodeGen:
         self.asm.jal(RA, e.callee)
 
     def _emit_defun(self, fun: DefFun) -> None:
-        """Emit prologue + body + epilogue for a user function."""
         n = len(fun.params)
-        frame_size = 8 + 4 * n  # ra(4) + fp(4) + n params(4 each)
+        frame_size = 8 + 4 * n  # ra + fp + params
 
         self.asm.place_label(fun.name)
-
-        # Prologue
         self.asm.addi(SP, SP, -frame_size)
-        self.asm.sw(SP, RA, 0)  # save ra
-        self.asm.sw(SP, FP, 4)  # save caller's fp
-        self.asm.addi(FP, SP, 0)  # new fp = sp
-
-        # Store parameters
+        self.asm.sw(SP, RA, 0)
+        self.asm.sw(SP, FP, 4)
+        self.asm.addi(FP, SP, 0)
         for i, _ in enumerate(fun.params):
             self.asm.sw(FP, ARG_REGS[i], 8 + 4 * i)
 
-        # Compile body (with params in scope)
         old_params = self._params
         self._params = fun.params
         for stmt in fun.body:
             self._expr(stmt)
         self._params = old_params
 
-        # Epilogue
-        self.asm.addi(SP, FP, 0)  # restore sp to frame base
-        self.asm.lw(RA, SP, 0)  # restore ra
-        self.asm.lw(FP, SP, 4)  # restore caller's fp
+        self.asm.addi(SP, FP, 0)
+        self.asm.lw(RA, SP, 0)
+        self.asm.lw(FP, SP, 4)
         self.asm.addi(SP, SP, frame_size)
-        self.asm.jalr(X0, RA)  # return
+        self.asm.jalr(X0, RA)
 
     def _param_idx(self, name: str) -> int:
-        """Return 0-based parameter index, or -1 if not a parameter."""
         try:
             return self._params.index(name)
         except ValueError:
             return -1
 
 
-# public API
-
-
 def compile_program(src: str) -> tuple[bytes, bytes, str]:
-    """
-    Compile Lisp source to binary.
-
-    Returns:
-        inst_bytes  — instruction memory binary (little-endian 32-bit words)
-        data_bytes  — data memory initial image
-        listing_txt — human-readable disassembly listing
-    """
     from .ast import parse
 
     exprs = parse(src)

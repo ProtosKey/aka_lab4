@@ -11,8 +11,8 @@ class IntLit:
 
 @dataclass
 class StrLit:
-    value: str  # the string content (without quotes)
-    label: int = 0  # assigned by codegen: byte offset in data section
+    value: str
+    label: int = 0
 
 
 @dataclass
@@ -109,7 +109,7 @@ def tokenize(src: str) -> list[str]:
                     i += 1
             if i >= n:
                 raise SyntaxError("Unterminated string literal")
-            i += 1  # skip closing "
+            i += 1
             tokens.append('"' + "".join(buf) + '"')
             continue
 
